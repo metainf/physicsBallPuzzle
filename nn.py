@@ -1,5 +1,6 @@
 import glob
 import time
+import re
 
 import numpy as np
 import torch
@@ -11,6 +12,11 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import torchvision.models as models
 
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
 
 class BallDataset(Dataset):
 
@@ -19,7 +25,7 @@ class BallDataset(Dataset):
         self.numFrames = numFrames
         self.numVel = numVel
         self.root_dir = root_dir
-        self.filenames = sorted(glob.glob(self.root_dir+"/*N.npz"))
+        self.filenames = sorted_nicely(glob.glob(self.root_dir+"/*N.npz"))
         loaded = np.load(self.filenames[0])
         self.numSamplesPerFile = (loaded['velArray'].shape[1] - (numFrames+numVel-1))
         self.numFiles = len(self.filenames)
