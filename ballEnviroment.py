@@ -101,8 +101,10 @@ class BouncyBalls(object):
             pygame.display.set_caption("fps: " + str(self._clock.get_fps()))
             screen = pygame.display.get_surface()
             screenNumpy = pygame.surfarray.pixels3d(screen)
-            ballPos = self._ball.body.position.int_tuple
+            ballPos = list(self._ball.body.position.int_tuple)
+            ballPos[1] = -ballPos[1] + self._screenHeight
             ballImg = screenNumpy[ballPos[0]-self._windowSize//2:ballPos[0]+self._windowSize//2,ballPos[1]-self._windowSize//2:ballPos[1]+self._windowSize//2,:]
+            ballImg = np.transpose(ballImg,(1, 0, 2))
             ballVel = self._ball.body.velocity.int_tuple
 
             self.ballImgArray[:,:,:,self._ticks] =  ballImg
@@ -243,5 +245,5 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--replay",help="replay's a file")
     parser.add_argument("name")
     args = parser.parse_args()
-    game = BouncyBalls(args.collision,args.replay,name)
+    game = BouncyBalls(args.collision,args.replay,args.name)
     game.run()

@@ -105,3 +105,6 @@ venv.bak/
 
 # numpy files
 *.npz
+
+# pytorch files
+*.pt

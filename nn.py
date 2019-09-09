@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
+import torchvision.models as models
 
 
 class BallDataset(Dataset):
@@ -18,10 +19,10 @@ class BallDataset(Dataset):
         self.numFrames = numFrames
         self.numVel = numVel
         self.root_dir = root_dir
-        self.filenames = sorted(glob.glob(self.root_dir+"/*.npz"))
+        self.filenames = sorted(glob.glob(self.root_dir+"/*N.npz"))
         loaded = np.load(self.filenames[0])
         self.numSamplesPerFile = (loaded['velArray'].shape[1] - (numFrames+numVel-1))
-        self.numFiles = len(glob.glob(self.root_dir+"/*.npz"))
+        self.numFiles = len(self.filenames)
 
     def __len__(self):
         return self.numFiles * self.numSamplesPerFile
@@ -47,18 +48,16 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.batch_size = batch_size
         self.numVel = numVel
-        self.cnn1 = nn.Sequential(
-            nn.Conv2d(3*numFrames, 96, kernel_size=11, stride=4, padding=0, bias=False),
-            nn.BatchNorm2d(96),
+        self.features = nn.Sequential(
+            nn.Conv2d(3*numFrames, 64, kernel_size=11, stride=4, padding=0),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2,ceil_mode=True),
 
-            nn.Conv2d(96, 256, kernel_size=5, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(256),
+            nn.Conv2d(64, 192, kernel_size=5, padding=0),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
 
-            nn.Conv2d(256, 384, kernel_size=3, stride=1),
+            nn.Conv2d(192, 384, kernel_size=3, padding=0),
             nn.ReLU(inplace=True),
 
             nn.Conv2d(384, 128, kernel_size=3, stride=1),
@@ -77,16 +76,16 @@ class Net(nn.Module):
             nn.Linear(1000,2*numVel),
         )
 
-    def init_hidden(self):
+    def init_hidden(self,device):
         # This is what we'll initialise our hidden state as
-        return (torch.zeros(2, self.batch_size, 1000),
-                torch.zeros(2, self.batch_size, 1000))
+        return (torch.zeros(2, self.batch_size, 1000).to(device),
+                torch.zeros(2, self.batch_size, 1000).to(device))
 
-    def forward(self,input):
-        input = self.cnn1(input)
-        input = torch.squeeze(input)
-        input = self.encoder(input)
-        lstm_out, self.hidden = self.lstm(input.view(-1, self.batch_size,1000))
+    def forward(self,imageSeq):
+        features = self.features(imageSeq)
+        features = torch.squeeze(features)
+        encoded = self.encoder(features)
+        lstm_out, self.hidden = self.lstm(encoded.view(-1, self.batch_size,1000))
         predict = self.decoder(lstm_out[-1].view(self.batch_size, -1))
         return predict.view(self.batch_size,2,self.numVel)
 
@@ -96,43 +95,66 @@ class Weighted_MSE_Loss(torch.nn.Module):
         self.weightVector = weightVector
 
     def forward(self,x,y):
-        sqError = torch.sum((x - y) ** 2,dim=1)
-        weightedError = sqError * self.weightVector.expand_as(sqError)
+        L2Error = torch.sqrt(torch.sum((x - y) ** 2,dim=1))
+        weightedError = L2Error * self.weightVector.expand_as(L2Error)
         return(torch.sum(weightedError))
 
-numFrames = 4
-numVel = 20
-batch_size = 50
-learning_rate = 0.001
-max_iters = 10
+if __name__ == '__main__':
+    numFrames = 4
+    numVel = 20
+    batch_size = 50
+    learning_rate = 0.0001
+    max_iters = 10
+    alexnet = models.alexnet(pretrained=True)
+    net = Net(batch_size,numFrames,numVel)
 
-net = Net(batch_size,numFrames,numVel)
-train_loader = DataLoader(
-    BallDataset(
-        "./",numFrames,numVel,
-        transform=transforms.Compose([
-            transforms.ToTensor()])
-    ),
-    batch_size=batch_size
-    )
+    alexnetDict = alexnet.state_dict()
+    del alexnetDict['features.0.weight']
+    del alexnetDict['features.0.bias']
+    del alexnetDict['features.8.weight']
+    del alexnetDict['features.8.bias']
 
-optimizer = optim.SGD(net.parameters(), lr=learning_rate)
-weightVectorNp = np.exp(-1*np.power(np.arange(numVel),1.0/4.0))
-weightVector = Variable(torch.tensor(weightVectorNp,dtype=torch.float32), requires_grad=True)
-criterion = Weighted_MSE_Loss(weightVector)
+    net.load_state_dict(alexnetDict,strict=False)
 
-for epoch in range(max_iters):
-    total_loss = 0.0
-    total_acc = 0.0
-    start = time.time()
-    print("Starting Training For epoch {:02d}".format(epoch))
-    for data in train_loader:
-        inputs, preditVel = data
-        optimizer.zero_grad()
-        net.hidden = net.init_hidden()
-        outputs = net(inputs)
-        loss = criterion(outputs, preditVel)
-        loss.backward()
-        optimizer.step()
-    end = time.time()
+    train_loader = DataLoader(
+        BallDataset(
+            "./",numFrames,numVel,
+            transform=transforms.Compose([
+                transforms.ToTensor()])
+        ),
+        batch_size=batch_size,num_workers=4
+        )
+
+    device = torch.device("cuda:0")
+    net.to(device)
+
+    optimizer = optim.Adam(net.parameters(), lr=learning_rate)
+    weightVectorNp = np.exp(-1*np.power(np.arange(numVel),1.0/4.0))
+    weightVector = Variable(torch.tensor(weightVectorNp,dtype=torch.float32), requires_grad=True)
+    criterion = Weighted_MSE_Loss(weightVector.to(device))
+
+
+    for epoch in range(max_iters):
+        start = time.time()
+        print("Starting Training For epoch {:02d}".format(epoch))
+        for data in train_loader:
+            net.zero_grad()
+            optimizer.zero_grad()
+
+            inputs, preditVel = data
+            inputs, preditVel = inputs.to(device),preditVel.to(device)
+
+            net.hidden = net.init_hidden(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, preditVel)
+            loss.backward()
+            optimizer.step()
+            print(loss)
+        end = time.time()
+        print("Finished Training For epoch {:02d}, took {:.2f} seconds".format(epoch,end-start))
+        torch.save(net.state_dict(),"lstmNN.pt")
+
+
+
+
 
