@@ -3,6 +3,8 @@ import time
 import re
 
 import numpy as np
+from numpy.lib import stride_tricks
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -20,14 +22,15 @@ def sorted_nicely( l ):
 
 class BallDataset(Dataset):
 
-    def __init__(self,root_dir,numFrames,numVel,transform=None):
+    def __init__(self,root_dir,numFrames,numVel,sequenceLength,transform=None):
         self.transform = transform
         self.numFrames = numFrames
         self.numVel = numVel
+        self.sequenceLength = sequenceLength
         self.root_dir = root_dir
         self.filenames = sorted_nicely(glob.glob(self.root_dir+"/*N.npz"))
         loaded = np.load(self.filenames[0])
-        self.numSamplesPerFile = (loaded['velArray'].shape[1] - (numFrames+numVel-1))
+        self.numSamplesPerFile = (loaded['velArray'].shape[1] - (numFrames+numVel+sequenceLength-1))
         self.numFiles = len(self.filenames)
 
     def __len__(self):
@@ -40,19 +43,25 @@ class BallDataset(Dataset):
         sequenceNum = idx % self.numSamplesPerFile
         sequenceIndex = sequenceNum + self.numFrames - 1
         loaded = np.load(self.filenames[fileIndex])
-        imageSequence = loaded['ballImgArray'][:,:,:,sequenceIndex-self.numFrames+1:sequenceIndex+1]
-        imageSequence = imageSequence.reshape((128,128,3*self.numFrames))
-        if self.transform:
-            imageSequence = self.transform(imageSequence)
-        predictSequence = loaded['velArray'][:,sequenceIndex:sequenceIndex+self.numVel]
+        loadedImgSeq = loaded['ballImgArray']
+        loadedVelArray = loaded['velArray']
+        imageSequence = []
+        predictSequence = []
+        for i in range(self.sequenceLength):
+            imageSequence.append(loadedImgSeq[:,:,:,sequenceIndex-self.numFrames+1:sequenceIndex+1].reshape((128,128,3*self.numFrames)))
+            predictSequence.append(loadedVelArray[:,sequenceIndex:sequenceIndex+self.numVel])
+        imageSequence = np.stack(imageSequence)
+        predictSequence = np.stack(predictSequence)
+        imageSequence = np.transpose(imageSequence,(0,3,2,1))
         predictSequence = torch.tensor(predictSequence,dtype=torch.float32)
+        imageSequence = torch.tensor(imageSequence,dtype=torch.float32) / 255.0
         sample = (imageSequence, predictSequence)
         return sample
 
 class Net(nn.Module):
-    def __init__(self,batch_size,numFrames,numVel):
+    def __init__(self,sequenceLength,numFrames,numVel):
         super(Net, self).__init__()
-        self.batch_size = batch_size
+        self.sequenceLength = sequenceLength
         self.numVel = numVel
         self.features = nn.Sequential(
             nn.Conv2d(3*numFrames, 64, kernel_size=11, stride=4, padding=0),
@@ -84,16 +93,16 @@ class Net(nn.Module):
 
     def init_hidden(self,device):
         # This is what we'll initialise our hidden state as
-        return (torch.zeros(2, self.batch_size, 1000).to(device),
-                torch.zeros(2, self.batch_size, 1000).to(device))
+        return (torch.zeros(2, self.sequenceLength, 1000).to(device),
+                torch.zeros(2, self.sequenceLength, 1000).to(device))
 
     def forward(self,imageSeq):
         features = self.features(imageSeq)
         features = torch.squeeze(features)
         encoded = self.encoder(features)
-        lstm_out, self.hidden = self.lstm(encoded.view(-1, self.batch_size,1000))
-        predict = self.decoder(lstm_out[-1].view(self.batch_size, -1))
-        return predict.view(self.batch_size,2,self.numVel)
+        lstm_out, self.hidden = self.lstm(encoded.view(-1, self.sequenceLength,1000))
+        predict = self.decoder(lstm_out[-1].view(self.sequenceLength, -1))
+        return predict.view(self.sequenceLength,2,self.numVel)
 
 class Weighted_MSE_Loss(torch.nn.Module):
     def __init__(self,weightVector):
@@ -109,10 +118,11 @@ if __name__ == '__main__':
     numFrames = 4
     numVel = 20
     batch_size = 50
+    sequenceLength = 20
     learning_rate = 0.0001
     max_iters = 10
     alexnet = models.alexnet(pretrained=True)
-    net = Net(batch_size,numFrames,numVel)
+    net = Net(sequenceLength,numFrames,numVel)
 
     alexnetDict = alexnet.state_dict()
     del alexnetDict['features.0.weight']
@@ -124,11 +134,11 @@ if __name__ == '__main__':
 
     train_loader = DataLoader(
         BallDataset(
-            "./",numFrames,numVel,
+            "./",numFrames,numVel,sequenceLength,
             transform=transforms.Compose([
                 transforms.ToTensor()])
         ),
-        batch_size=batch_size,num_workers=4
+        batch_size=batch_size,num_workers=4,shuffle=True
         )
 
     device = torch.device("cuda:0")
@@ -147,15 +157,17 @@ if __name__ == '__main__':
             net.zero_grad()
             optimizer.zero_grad()
 
-            inputs, preditVel = data
-            inputs, preditVel = inputs.to(device),preditVel.to(device)
-
-            net.hidden = net.init_hidden(device)
-            outputs = net(inputs)
-            loss = criterion(outputs, preditVel)
-            loss.backward()
+            inputsBatch, preditVelBatch = data
+            inputsBatch, preditVelBatch = inputsBatch.to(device),preditVelBatch.to(device)
+            for i in range(inputsBatch.shape[0]):
+                inputs = inputsBatch[i,:,:,:,:]
+                preditVel = preditVelBatch[i,:,:,:]
+                net.hidden = net.init_hidden(device)
+                outputs = net(inputs)
+                loss = criterion(outputs, preditVel)
+                loss.backward(retain_graph=True)
+                print(loss)
             optimizer.step()
-            print(loss)
         end = time.time()
         print("Finished Training For epoch {:02d}, took {:.2f} seconds".format(epoch,end-start))
         torch.save(net.state_dict(),"lstmNN.pt")
