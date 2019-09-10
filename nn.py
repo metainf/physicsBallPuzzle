@@ -93,15 +93,15 @@ class Net(nn.Module):
 
     def init_hidden(self,device):
         # This is what we'll initialise our hidden state as
-        return (torch.zeros(2, self.sequenceLength, 1000).to(device),
-                torch.zeros(2, self.sequenceLength, 1000).to(device))
+        return (torch.zeros(2, 1, 1000).to(device),
+                torch.zeros(2, 1, 1000).to(device))
 
     def forward(self,imageSeq):
         features = self.features(imageSeq)
         features = torch.squeeze(features)
         encoded = self.encoder(features)
-        lstm_out, self.hidden = self.lstm(encoded.view(-1, self.sequenceLength,1000))
-        predict = self.decoder(lstm_out[-1].view(self.sequenceLength, -1))
+        lstm_out, self.hidden = self.lstm(encoded.view(self.sequenceLength, 1,1000))
+        predict = self.decoder(lstm_out)
         return predict.view(self.sequenceLength,2,self.numVel)
 
 class Weighted_MSE_Loss(torch.nn.Module):
@@ -138,7 +138,7 @@ if __name__ == '__main__':
             transform=transforms.Compose([
                 transforms.ToTensor()])
         ),
-        batch_size=batch_size,num_workers=4,shuffle=True
+        batch_size=batch_size,num_workers=4,shuffle=True,drop_last=True
         )
 
     device = torch.device("cuda:0")
@@ -159,6 +159,7 @@ if __name__ == '__main__':
 
             inputsBatch, preditVelBatch = data
             inputsBatch, preditVelBatch = inputsBatch.to(device),preditVelBatch.to(device)
+
             for i in range(inputsBatch.shape[0]):
                 inputs = inputsBatch[i,:,:,:,:]
                 preditVel = preditVelBatch[i,:,:,:]
@@ -167,6 +168,7 @@ if __name__ == '__main__':
                 loss = criterion(outputs, preditVel)
                 loss.backward(retain_graph=True)
                 print(loss)
+
             optimizer.step()
         end = time.time()
         print("Finished Training For epoch {:02d}, took {:.2f} seconds".format(epoch,end-start))
