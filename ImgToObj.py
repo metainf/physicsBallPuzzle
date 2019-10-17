@@ -9,24 +9,44 @@ def phyreImgToBoolLayers(img):
   labels_one_hot.shape = img.shape + (ncols,)
   return labels_one_hot
 
-def findCirclesInPhyre(img):
-  allCircles = []
+def findContoursInPhyre(img):
+  allContours = []
   layeredImg = phyreImgToBoolLayers(img)
   for i in range(phyre.creator.constants.NUM_COLORS):
-    circles = None
+    contours = []
     if i > 0:
-      grayImg = np.full_like(layeredImg[:,:,i],0,dtype=np.uint8)
-      grayImg = np.where(layeredImg[:,:,i],grayImg,255)
-      circles = cv2.HoughCircles(grayImg,cv2.HOUGH_GRADIENT,1,20,
-              param1=15,
-              param2=10)
-      print(circles)
-      #fig, ax = plt.subplots()
-      #ax.imshow(grayImg)
-      #ax.axis('off')
-      #plt.show()
-      #cv2.imshow('detected circles',grayImg)
-      #cv2.waitKey(0)
-    allCircles.append(circles)
-  return allCircles
+      grayImg = np.full_like(layeredImg[:,:,i],255,dtype=np.uint8)
+      grayImg = np.where(layeredImg[:,:,i],grayImg,0)
+      contours,hierarchy = cv2.findContours(grayImg,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+    allContours.append(contours)
+  return allContours
+
+def isContourCircle(contour):
+  M = cv2.moments(contour)
+  circleMeasure = (M['m00'] * M['m00']) / (2*np.pi * (M['mu20']+M['mu02']))
+  return circleMeasure > .95
+
+def seperateCircleFromOtherContours(contours):
+  circles = []
+  otherContours = []
+  for contour in contours:
+    if isContourCircle(contour):
+      (x,y),radius = cv2.minEnclosingCircle(contour)
+      circles.append((x,y,radius))
+    else:
+      otherContours.append(contour)
+  return (otherContours,circles)
+
+def simplifyContours(contours):
+  simpleContours = []
+  for contour in contours:
+    minLength = np.linalg.norm(contour[0,:,:] - contour[-1,:,:])
+    for i in range(contour.shape[0]-1):
+      length = np.linalg.norm(contour[i,:,:] - contour[i+1,:,:])
+
+    epsilon = 0.025*cv2.arcLength(contour,True)
+    simpleContours.append(cv2.approxPolyDP(contour,epsilon,True))
+    print(contour.shape,cv2.approxPolyDP(contour,epsilon,True).shape)
+  return simpleContours
+
   
