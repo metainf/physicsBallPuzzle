@@ -16,8 +16,24 @@ import phyre
 
 import ImgToObj
 
+def handle_begin(arbiter, space, data):
+  data["total_ticks"] = 0
+  print("begin touch")
+  return True
+
+def handle_pre_solve(arbiter, space, data):
+  print("touching")
+  data["total_ticks"] = data["total_ticks"] + 1
+  if data["total_ticks"] > data["max_ticks"]:
+    data["max_ticks"] = data["total_ticks"]
+  return True
+
+def handle_separate(arbiter, space, data):
+  print("end touch")
+  return True
+
 eval_setup = 'ball_cross_template'
-fold_id = 300  # For simplicity, we will just use one fold for evaluation.
+fold_id = 0  # For simplicity, we will just use one fold for evaluation.
 train_tasks, dev_tasks, test_tasks = phyre.get_fold(eval_setup, fold_id)
 action_tier = phyre.eval_setup_to_action_tier(eval_setup)
 print("Dev Tasks:{}".format(len(dev_tasks)))
@@ -78,7 +94,7 @@ plt.show()
 t0 = time.time()
 # Initialize space
 space = pymunk.Space()
-space.gravity = (0.0, -50.0)
+space.gravity = (0.0, -35.0)
 space.iterations = 10
 
 COLLISION_OBJECT = 1
@@ -127,7 +143,7 @@ for i,layer_objects in enumerate(scene_objects):
       body = pymunk.Body(body_type=pymunk.Body.STATIC)
     body.position = center
     for triangle in polygon[1]['triangles'].tolist():
-      shape = pymunk.Poly(body,polygon[1]['vertices'][triangle,:].astype(float)-center,radius=1.0)
+      shape = pymunk.Poly(body,polygon[1]['vertices'][triangle,:].astype(float)-center,radius=0.25)
       shape.elasticity = 0.3
       shape.friction = 0.6
       shape.density = 1
@@ -140,6 +156,21 @@ for i,layer_objects in enumerate(scene_objects):
     space.add(body)
     layer_objects['pymunk_polys'].append(triangles)
 
+ch_begin = space.add_collision_handler(COLLISION_OBJECT, COLLISION_GOAL)
+ch_begin.data["total_ticks"] = 0
+ch_begin.begin = handle_begin
+
+ch_pre_solve = space.add_collision_handler(COLLISION_OBJECT, COLLISION_GOAL)
+ch_pre_solve.data["total_ticks"] = 0
+ch_pre_solve.data["max_ticks"] = 0
+ch_pre_solve.pre_solve = handle_pre_solve
+
+ch_separate = space.add_collision_handler(COLLISION_OBJECT, COLLISION_GOAL)
+ch_separate.data["total_ticks"] = 0
+ch_separate.data["max_ticks"] = 0
+ch_separate.separate = handle_separate
+
+
 dt = 1.0/60.0
 time_sim = len(images)
 num_steps = int(time_sim/dt)
@@ -150,6 +181,7 @@ print("Steps Simulated",num_steps)
 print("Time Step",dt)
 
 for i in range(num_steps):
+  ch_pre_solve.data["total_ticks"] = ch_begin.data["total_ticks"]
   space.step(dt)
   # Delay fixed time between frames
   for layer_objects in scene_objects:
@@ -186,7 +218,8 @@ for i in range(num_steps):
     plt.show()
 
 t1 = time.time()
-print(t1-t0,"Sim Time")
+print("Sim Time",t1-t0)
+print("Longest Collision seconds",ch_pre_solve.data["max_ticks"]*dt)
 exit()
 
 

@@ -69,7 +69,7 @@ def triangulateContour(contour):
 # 'raw_img': a grayscaled img of the layer
 # 'circles': a list of all the circles in the layer as a tuple (x,y,radius)
 # 'polygons': a list of all the polygons in the layer as a tuple of (n by 2 array of points,triangle dict)
-def phyreToObj(img,action):
+def phyreToObj(img,action=None):
   # Turn the labels in a one hot vector img
   layered_img = phyreImgToBoolLayers(img)
 
@@ -89,7 +89,7 @@ def phyreToObj(img,action):
 
       # Seperate circles from the contours
       contours,circles = seperateCircleFromOtherContours(contours)
-      if i == Layer.action.value:
+      if i == Layer.action.value and action is not None     :
         circles.append(phyreActionToPixelAction(action))
 
       # Simplify the non circle contours
