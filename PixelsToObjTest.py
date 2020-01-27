@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
-import pymunk
-from pymunk import Vec2d
+#import pymunk
+#from pymunk import Vec2d
 
 import phyre
 
@@ -33,18 +33,17 @@ def handle_separate(arbiter, space, data):
   return True
 
 eval_setup = 'ball_cross_template'
-fold_id = 0  # For simplicity, we will just use one fold for evaluation.
+fold_id = 1  # For simplicity, we will just use one fold for evaluation.
 train_tasks, dev_tasks, test_tasks = phyre.get_fold(eval_setup, fold_id)
 action_tier = phyre.eval_setup_to_action_tier(eval_setup)
-print("Dev Tasks:{}".format(len(dev_tasks)))
-tasks = dev_tasks
+tasks = test_tasks
 
 with open("tasks.txt","w") as f:
   for i,task in enumerate(tasks):
     print(i,task,file=f)
 
 simulator = phyre.initialize_simulator(tasks, action_tier)
-task_index = 0  # Note, this is a integer index of task within simulator.task_ids.
+task_index = 214  # Note, this is a integer index of task within simulator.task_ids.
 task_id = simulator.task_ids[task_index]
 initial_scene = simulator.initial_scenes[task_index]
 actions = simulator.build_discrete_action_space(max_actions=100)
@@ -65,7 +64,7 @@ fig.tight_layout()
 plt.subplots_adjust(hspace=0.4, wspace=0.3)
 
 t0 = time.time()
-scene_objects = ImgToObj.phyreToObj(initial_scene,action)
+scene_objects = ImgToObj.phyreToObj(initial_scene)
 t1 = time.time()
 print(t1-t0,"Contour Finding Time")
 
@@ -77,9 +76,11 @@ for i,ax in enumerate(axs.flatten()):
     ax.imshow(colorImg)
     for polygon in scene_objects[i]['polygons']:
       ax.scatter(polygon[0][:,0],polygon[0][:,1],s=4,c='r')
-      for triangle in polygon[1]['triangles'].tolist():
-        ax.plot(polygon[1]['vertices'][triangle,0],polygon[1]['vertices'][triangle,1],'b')
-        ax.plot(polygon[1]['vertices'][[triangle[0],triangle[-1]],0],polygon[1]['vertices'][[triangle[0],triangle[-1]],1],'b')
+      ax.plot(polygon[0][:,0],polygon[0][:,1],c='b')
+      ax.plot(polygon[0][[0,-1],0],polygon[0][[0,-1],1],c='b')
+      for triangle in polygon[1]:
+        ax.plot(triangle[:,0],triangle[:,1],c='b')
+        ax.plot(triangle[[0,-1],0],triangle[[0,-1],1],c='b')
     ax.title.set_text(str(i))
     for circle in scene_objects[i]['circles']:
       print(i,circle)
@@ -90,6 +91,8 @@ for i,ax in enumerate(axs.flatten()):
   elif i == 8:
     ax.imshow(images[0])
 plt.show()
+
+'''
 
 t0 = time.time()
 # Initialize space
@@ -251,4 +254,4 @@ p = PatchCollection(patches, alpha=0.4)
 axs[1].add_collection(p)
 
 plt.show()
-
+'''

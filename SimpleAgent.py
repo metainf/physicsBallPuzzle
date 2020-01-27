@@ -1,4 +1,5 @@
-from operator import itemgetter
+import random
+import faulthandler
 
 import numpy as np
 
@@ -55,13 +56,18 @@ def evaluate_simple_agent(tasks, tier):
 
   # Create a simulator for the task and tier.
   simulator = phyre.initialize_simulator(tasks, tier)
+  cache = phyre.get_default_100k_cache(tier)
   evaluator = phyre.Evaluator(tasks)
   assert tuple(tasks) == simulator.task_ids
   tasks_solved = 0
   for task_index in tqdm(range(len(tasks)), desc='Evaluate tasks'):
     # Get the initial scene and process it
+    #print(tasks[task_index])
     initial_scene = simulator.initial_scenes[task_index]
     scene_objects = ImgToObj.phyreToObj(initial_scene)
+    #print("Finished parsing scene")
+    task_statuses = cache.load_simulation_states(tasks[task_index])
+
 
     # Get the centroid of the object
     object_layer_info = scene_objects[ImgToObj.Layer.object.value]
@@ -76,8 +82,6 @@ def evaluate_simple_agent(tasks, tier):
       object_centroid[0] = center[0]
       object_centroid[1] = center[1]
       object_bb = polygon_bounding_box(object_layer_info['polygons'][0][0].astype(float))
-
-
 
     # Get the centroid of the goal
     dynamic_goal_layer_info = scene_objects[ImgToObj.Layer.dynamic_goal.value]
@@ -99,57 +103,31 @@ def evaluate_simple_agent(tasks, tier):
       goal_centroid[0] = center[0]
       goal_centroid[1] = center[1]
 
-    discrete_actions = simulator.build_discrete_action_space(10000)
+    #discrete_actions = simulator.build_discrete_action_space(10000)
+    discrete_actions = cache.action_array.tolist()
     valid_actions = []
-    for test_action in discrete_actions:
+    for action_id,test_action in enumerate(discrete_actions):
       x,y,r = ImgToObj.phyreActionToPixelAction(test_action)
-      if (goal_centroid[0] - object_centroid[0]) * (object_centroid[0] - x) > 0:
+      if (goal_centroid[0] - object_centroid[0]) * (object_centroid[0] - x) > 0 and task_statuses[action_id] != phyre.simulation_cache.INVALID:
         test_action_bb = [(x-r,y+r),(x+r,y+r),(x+r,0),(x-r,0)]
         if rect_intersect(object_bb,test_action_bb):
-          valid_actions.append(test_action)
-          """
-          fig, axs = plt.subplots()
-          axs.imshow(np.full((256,256,3),255))
-          patches = []
-          for layer_objects in scene_objects:
-            for circle in layer_objects['circles']:
-              circle1=plt.Circle((circle[0],256.0-circle[1]),radius=circle[2],color='b',fill=True)
-              axs.add_artist(circle1)
-
-            circle1=plt.Circle((x,256.0-y),radius=r,color='r',fill=True)
-            axs.add_artist(circle1)
-            for polygon in layer_objects['polygons']:
-              verts = polygon[0]
-              verts[:,1] = 256.0-verts[:,1]
-              polygon = Polygon(verts,color='b')
-              patches.append(polygon)
-
-          verts = np.array(object_bb)
-          verts[:,1] = 256.0-verts[:,1]
-          polygon = Polygon(verts,color='g',alpha=.5)
-          patches.append(polygon)
-
-          verts = np.array(test_action_bb)
-          verts[:,1] = 256.0-verts[:,1]
-          polygon = Polygon(verts,color='r',alpha=.5)
-          patches.append(polygon)
-
-          p1 = PatchCollection(patches)
-          axs.add_collection(p1)
-          plt.show()
-          """
+          valid_actions.append((test_action,action_id))
     #print('Number of discrete actions',len(discrete_actions),',','Number of valid actions',len(valid_actions))
-    valid_actions.sort(reverse=True,key=itemgetter(2))
-    action_index = 0
+    valid_actions.sort(reverse=True,key=lambda x: x[0][2])
+    valid_action_index = 0
     solved_task = False
     while evaluator.get_attempts_for_task(task_index) < phyre.MAX_TEST_ATTEMPTS and not solved_task:
 
-      action = valid_actions[action_index%len(valid_actions)]
-      action_index += 1
+      if len(valid_actions) > 0:
+        action_index = valid_actions[valid_action_index%len(valid_actions)][1]
+        valid_action_index += 1
+      else:
+        action_index = random.randint(0, len(cache))
       # Simulate the given action and add the status from taking the action to the evaluator.
-      status, _ = simulator.simulate_single(task_index,
-                                            action,
-                                            need_images=False)
+      #status, _ = simulator.simulate_single(task_index,
+      #                                      action,
+      #                                      need_images=False)
+      status = phyre.SimulationStatus(task_statuses[action_index])
       #print('Does', action, 'solve task', tasks[task_index], '?', status.is_solved())
       if(status.is_solved()):
         solved_task = True
@@ -186,21 +164,23 @@ def evaluate_random_agent(tasks, tier):
   return evaluator
 
 
-eval_setup = 'ball_cross_template'
-fold_id = 0  # For simplicity, we will just use one fold for evaluation.
-train_tasks, dev_tasks, test_tasks = phyre.get_fold(eval_setup, fold_id)
-print('Size of resulting splits:\n train:', len(train_tasks), '\n dev:',
-      len(dev_tasks), '\n test:', len(test_tasks))
+faulthandler.enable()
+random.seed(0)
+eval_setups = ['ball_cross_template', 'ball_within_template']
+fold_ids = list(range(0,10))  # For simplicity, we will just use one fold for evaluation.
+print('eval setups',eval_setups)
+print('fold ids',fold_ids)
 
-action_tier = phyre.eval_setup_to_action_tier(eval_setup)
-print('Action tier for', eval_setup, 'is', action_tier)
+f = open("simple_agent_results.csv","w+")
+print('eval_setup,fold_id,AUCESS',file=f)
 
-tasks = dev_tasks
-
-evaluator = evaluate_random_agent(tasks, action_tier)
-print('AUCESS after 100 attempts of random agent on',len(tasks),'tasks of dev set',
-      evaluator.get_aucess())
-
-evaluator = evaluate_simple_agent(tasks, action_tier)
-print('AUCESS after 100 attempts of simple agent on',len(tasks),'tasks of dev set',
-      evaluator.get_aucess())
+for eval_setup in eval_setups:
+  for fold_id in fold_ids:
+    print('Eval Setup:',eval_setup,'Fold Id:',fold_id)
+    train_tasks, dev_tasks, test_tasks = phyre.get_fold(eval_setup, fold_id)
+    action_tier = phyre.eval_setup_to_action_tier(eval_setup)
+    tasks = test_tasks
+    evaluator = evaluate_simple_agent(tasks, action_tier)
+    print('AUCESS after 100 attempts of simple agent on',len(tasks),'tasks',
+          evaluator.get_aucess())
+    print('{},{},{}'.format(eval_setup,fold_id,evaluator.get_aucess()),file=f)
