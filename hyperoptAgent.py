@@ -90,7 +90,6 @@ def worker(fold_id,eval_setup):
 faulthandler.enable()
 random.seed(0)
 eval_setups = ['ball_cross_template', 'ball_within_template']
-# For simplicity, we will just use one fold for evaluation.
 fold_ids = list(range(0, 10))
 print('eval setups', eval_setups)
 print('fold ids', fold_ids)

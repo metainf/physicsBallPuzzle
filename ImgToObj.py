@@ -29,10 +29,17 @@ def phyreImgToBoolLayers(img):
 
 def phyreActionToPixelAction(action):
   pixelAction = [0, 0, 0]
-  pixelAction[0] = action[0] * 255.0
-  pixelAction[1] = action[1] * 255.0
+  pixelAction[0] = action[0] * 256.0
+  pixelAction[1] = action[1] * 256.0
   pixelAction[2] = action[2] * 30.0 + 1.9
   return pixelAction
+
+def pixelActionToPhyreAction(action):
+  phyreAction = [0, 0, 0]
+  phyreAction[0] = action[0]/256.0
+  phyreAction[1] = action[1]/256.0
+  phyreAction[2] = (action[2] - 1.9)/30.0
+  return phyreAction
 
 
 def isContourCircle(contour):

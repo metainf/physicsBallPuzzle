@@ -1,0 +1,2 @@
+Percent Solved: 1.0
+Ball Sizes: [0.01   0.2575 0.505  0.7525 1.    ]

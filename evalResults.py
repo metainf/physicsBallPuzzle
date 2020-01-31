@@ -1,7 +1,7 @@
 import phyre
 import numpy as np
 
-f = open("simple_hyperopt_agent_results.csv", "r")
+f = open("simple_agent_results2020_01_31_093820.csv", "r")
 
 cross_results = []
 
