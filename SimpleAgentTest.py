@@ -31,6 +31,27 @@ def rect_intersect(rect1, rect2):
 
   return True
 
+def overlappingArea(rect1, rect2): 
+  if rect_intersect(rect1,rect2):
+    l1 = rect1[0]
+    r1 = rect1[2]
+    l2 = rect2[0]
+    r2 = rect2[2]
+    
+    areaI = (min(r1[0], r2[0]) - max(l1[0], l2[0])) * (min(l1[1], l2[1]) - max(r1[1], r2[1])) 
+    return areaI
+  else:
+    return 0
+
+def rectArea(rect):
+  l = rect[0]
+  r = rect[2]
+  area = abs(l[0] - r[0]) * abs(l[1] - r[1])
+  return area
+
+def checkForObs(x,y,r,bb,img):
+  bb_top = np.max(bb[:,1])
+  #test_area = img[]
 
 def count_good_actions(tasks, tier):
   simulator = phyre.initialize_simulator(tasks, tier)
@@ -39,6 +60,17 @@ def count_good_actions(tasks, tier):
   pos = np.linspace(0, 1, 50)
 
   actions = np.array(np.meshgrid(pos, pos, ball_sizes)).T.reshape(-1, 3)
+
+  valid_actions = []
+
+  for action in actions:
+    x, y, r = ImgToObj.phyreActionToPixelAction(action)
+    action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)])
+    if np.min(action_bb[:,0]) > 0 and np.max(action_bb[:,0]) < 255 and np.min(action_bb[:,1]) > 0 and np.max(action_bb[:,1]) < 255:
+      valid_actions.append(action)
+
+  actions = np.array(valid_actions)
+  
   for task_index in tqdm(range(len(tasks)), desc='Evaluate tasks'):
     initial_scene = simulator.initial_scenes[task_index]
     frame_data = ImgToObj.getObjectAndGoalSequence([initial_scene])
@@ -60,17 +92,18 @@ def count_good_actions(tasks, tier):
     for action in actions:
       x, y, r = ImgToObj.phyreActionToPixelAction(action)
       action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, 0), (x-r, 0)])
-      if (goal_center[0] - object_center[0]) * (object_center[0] - x) > 0:
-        if rect_intersect(object_bb, action_bb):
-          good_action_count += 1
+      
+      if rect_intersect(object_bb, action_bb) and overlappingArea(object_bb, action_bb) >= min(np.pi * r * r,rectArea(object_bb))/2:
           sim_result = simulator.simulate_action(task_index, action, need_images=False)
+          if not sim_result.status.is_invalid():
+            good_action_count += 1
           if(sim_result.status.is_solved()):
             solved_action_count += 1
       elif goal_type == ImgToObj.Layer.dynamic_goal.value:
-        if (object_center[0] - goal_center[0]) * (goal_center[0] - x) > 0:
-          if ImgToObj.rect_intersect(goal_bb, action_bb):
-            good_action_count += 1
+        if ImgToObj.rect_intersect(goal_bb, action_bb) and overlappingArea(goal_bb, action_bb) >= min(np.pi * r * r,rectArea(goal_bb))/2:
             sim_result = simulator.simulate_action(task_index, action, need_images=False)
+            if not sim_result.status.is_invalid():
+              good_action_count += 1
             if(sim_result.status.is_solved()):
               solved_action_count += 1
 
