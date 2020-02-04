@@ -74,7 +74,7 @@ for action_id, test_action in tqdm(enumerate(discrete_actions),desc='Eval Action
         if statuses[action_id] == phyre.simulation_cache.SOLVED:
           solved_action_count += 1
       elif goal_type == ImgToObj.Layer.dynamic_goal.value:
-        if ImgToObj.rect_intersect(goal_bb, test_action_time_bb) or ImgToObj.rect_intersect(goal_bb, test_action_time_bb):
+        if ImgToObj.rect_intersect(goal_bb, test_action_time_bb):
           good_action_count += 1
           found_intersect = True
           good_actions.append([x,y,r,statuses[action_id]])

@@ -93,14 +93,24 @@ def count_good_actions(tasks, tier):
       x, y, r = ImgToObj.phyreActionToPixelAction(action)
       action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, 0), (x-r, 0)])
       
-      if rect_intersect(object_bb, action_bb) and overlappingArea(object_bb, action_bb) >= min(np.pi * r * r,rectArea(object_bb))/2:
-          sim_result = simulator.simulate_action(task_index, action, need_images=False)
-          if not sim_result.status.is_invalid():
-            good_action_count += 1
-          if(sim_result.status.is_solved()):
-            solved_action_count += 1
+      if (goal_center[0] - object_center[0]) * (object_center[0] - x) > 0 and rect_intersect(object_bb, action_bb):
+          action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, object_center[1]), (x-r, object_center[1])])
+          tl = action_bb[0, :].astype(int)
+          br = action_bb[2, :].astype(int)
+          rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+          if ImgToObj.Layer.object.value in rect_img and ImgToObj.Layer.static_body not in rect_img:
+            sim_result = simulator.simulate_action(task_index, action, need_images=False)
+            if not sim_result.status.is_invalid():
+              good_action_count += 1
+            if(sim_result.status.is_solved()):
+              solved_action_count += 1
       elif goal_type == ImgToObj.Layer.dynamic_goal.value:
-        if ImgToObj.rect_intersect(goal_bb, action_bb) and overlappingArea(goal_bb, action_bb) >= min(np.pi * r * r,rectArea(goal_bb))/2:
+        if (object_center[0] - goal_center[0]) * (goal_center[0] - x) > 0 and ImgToObj.rect_intersect(goal_bb, action_bb):
+          action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, goal_center[1]), (x-r, goal_center[1])])
+          tl = action_bb[0, :].astype(int)
+          br = action_bb[2, :].astype(int)
+          rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+          if goal_type in rect_img and ImgToObj.Layer.static_body not in rect_img:
             sim_result = simulator.simulate_action(task_index, action, need_images=False)
             if not sim_result.status.is_invalid():
               good_action_count += 1
@@ -115,7 +125,7 @@ def count_good_actions(tasks, tier):
 
 tier = 'ball'
 cache = phyre.get_default_100k_cache(tier)
-task_ids = list(cache.task_ids)
+task_ids = list(cache.task_ids)[:100]
 simulator = phyre.initialize_simulator(task_ids, tier)
 initial_scenes = simulator.initial_scenes
 

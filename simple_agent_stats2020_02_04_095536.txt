@@ -1,0 +1,5 @@
+Total Actions: 8989
+Reduction Mean: 498.16326530612247 STD: 704.5855880554614
+Percent Solved Mean: 0.054937222638975054 STD: 0.11001432079804968
+Percent With No Good action: 0.02
+Percent With No solution: 0.55
