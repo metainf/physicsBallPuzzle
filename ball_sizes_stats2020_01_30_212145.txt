@@ -1,3 +1,0 @@
-Percent Solved: 0.9464
-Ball Sizes: [0.01   0.2575 0.505  0.7525 1.    ]
-XY spacing: 50

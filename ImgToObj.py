@@ -26,6 +26,11 @@ def phyreImgToBoolLayers(img):
   labels_one_hot.shape = img.shape + (ncols,)
   return labels_one_hot
 
+def phyreRadiusToPixelRadius(r):
+  return r * 30.0 + 1.9
+
+def pixelRadiusToPhyreRadius(r):
+  return (r - 1.9)/30.0
 
 def phyreActionToPixelAction(action):
   pixelAction = [0, 0, 0]

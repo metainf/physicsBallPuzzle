@@ -35,10 +35,10 @@ tier = 'ball'
 cache = phyre.get_default_100k_cache(tier)
 task_ids = list(cache.task_ids)
 
-ball_sizes = np.linspace(0.01,1,5)
-num_pos = 50
+ball_sizes = np.linspace(0.25,1,3)
+num_pos = 25
 
-pool_count = 4
+pool_count = 8
 pool = multiprocessing.Pool(pool_count)
 partial_worker = partial(
     count_ball_sizes,
@@ -58,7 +58,7 @@ print((t1-t0)/len(task_ids), "Avg Time")
 
 now = datetime.now()
 dt_string = now.strftime("%Y_%m_%d_%H%M%S")
-f = open("ball_sizes_stats{}.txt".format(dt_string), "w+")
+f = open("./stats/ball_sizes_stats{}.txt".format(dt_string), "w+")
 print("Percent Solved:",total_num_solved/len(task_ids), file=f)
 print("Ball Sizes:",ball_sizes,file=f)
 print("XY spacing:",num_pos,file=f)

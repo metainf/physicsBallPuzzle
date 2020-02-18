@@ -1,4 +1,0 @@
-Reduction Mean: 3299.0191666666665 STD: 3787.4604705923075
-Percent Solved Mean: 0.16830197384401754 STD: 0.27866172316004284
-Percent With No Good action: 0.04
-Percent With No solution: 0.2512
