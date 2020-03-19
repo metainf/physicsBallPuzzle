@@ -105,15 +105,14 @@ def evaluate_simple_agent(tasks, tier):
         solved_task = True
         tasks_solved += 1
   print(tasks_solved, "Tasks solved out of ", len(tasks), "Total Tasks")
-  return evaluator
+  return (evaluator.get_aucess(),tasks_solved,len(tasks))
 
 
 def worker(fold_id, eval_setup):
   __, __, test_tasks = phyre.get_fold(eval_setup, fold_id)
   action_tier = phyre.eval_setup_to_action_tier(eval_setup)
   tasks = test_tasks
-  evaluator = evaluate_simple_agent(tasks, action_tier)
-  return evaluator.get_aucess()
+  return evaluate_simple_agent(tasks, action_tier)
 
 
 faulthandler.enable()
@@ -128,13 +127,13 @@ now = datetime.now()
 dt_string = now.strftime("%Y_%m_%d_%H%M%S")
 
 f = open("simple_agent_results{}.csv".format(dt_string), "w+")
-print('eval_setup,fold_id,AUCESS', file=f)
+print('eval_setup,fold_id,AUCESS,Solved,Total', file=f)
 
 for eval_setup in eval_setups:
-  pool = multiprocessing.Pool(3)
+  pool = multiprocessing.Pool(8)
   partial_worker = partial(
       worker,
       eval_setup=eval_setup)
   results = pool.imap(partial_worker, list(range(0, 10)))
   for fold_id, result in enumerate(results):
-    print('{},{},{}'.format(eval_setup, fold_id, result), file=f)
+    print('{},{},{},{},{}'.format(eval_setup, fold_id, result[0],result[1],result[2]), file=f)

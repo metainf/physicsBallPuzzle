@@ -21,8 +21,6 @@ def count_ball_sizes(task_ids, tier,ball_sizes,num_pos):
     statuses = cache.load_simulation_states(task_id)
     solved_actions = cache.action_array[statuses==phyre.simulation_cache.SOLVED,:]
     solved_actions[:,2] = ball_sizes[abs(solved_actions[:,2][None, :] - ball_sizes[:, None]).argmin(axis=0)]
-    solved_actions[:,0] = positions[abs(solved_actions[:,0][None, :] - positions[:, None]).argmin(axis=0)]
-    solved_actions[:,1] = positions[abs(solved_actions[:,1][None, :] - positions[:, None]).argmin(axis=0)]
     for solved_action in solved_actions:
       sim_result = simulator.simulate_action(
       task_index, solved_action, need_images=False)
@@ -35,7 +33,7 @@ tier = 'ball'
 cache = phyre.get_default_100k_cache(tier)
 task_ids = list(cache.task_ids)
 
-ball_sizes = np.linspace(0.25,1,3)
+ball_sizes = np.linspace(0.1,1,5)
 num_pos = 25
 
 pool_count = 8
