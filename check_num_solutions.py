@@ -21,15 +21,12 @@ action_array = cache.action_array
 print(action_array[solution_index,:])
 
 
-ax.scatter3D(action_array[solution_index,0], action_array[solution_index,1], action_array[solution_index,2]);
+ax.scatter3D(action_array[solution_index,0], action_array[solution_index,1], action_array[solution_index,2])
 #ax.scatter(action_array[solution_index,0],action_array[solution_index,1])
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
 ax.set_zlim(0, 1)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
-ax.set_zlabel('z');
+ax.set_zlabel('z')
 plt.show()
-
-
-

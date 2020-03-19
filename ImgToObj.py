@@ -238,3 +238,22 @@ def rect_intersect(rect1, rect2):
     return False
 
   return True
+
+def check_seq_action_intersect(seq_data,stride,goal_type,action):
+  got_intersect = False
+  x, y, r = phyreActionToPixelAction(action)
+  found_intersect = False
+  for frame_index, object_data, goal_data in zip(range(len(seq_data['object'])), seq_data['object'], seq_data['goal']):
+    if found_intersect:
+      break
+    goal_bb = goal_data['bb']
+    object_bb = object_data['bb']
+    time = frame_index * stride / FRAME_PER_SEC
+    y_time = max(r,y + 1.0/2.0 * GRAV_PIX_PER_SEC * time * time)
+    test_action_bb = [(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)]
+    test_action_time_bb = [(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)]
+    if rect_intersect(object_bb, test_action_bb) or rect_intersect(object_bb, test_action_time_bb):
+      got_intersect = True
+    elif goal_type == Layer.dynamic_goal.value and (rect_intersect(goal_bb, test_action_bb) or rect_intersect(goal_bb, test_action_time_bb)):
+      got_intersect = True
+  return got_intersect
