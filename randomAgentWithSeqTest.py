@@ -57,43 +57,29 @@ def count_good_actions(task_ids, tier):
       goal_type = ImgToObj.Layer.static_goal.value
 
     tested_actions_count = 0
-    tested_actions = np.array([[-1,-1,-1]])
+    tested_actions = np.array([[-1,-1,-1,1]])
     while tested_actions_count < max_actions and solved_action_count <= 0:
-      random_action = np.random.random_sample((1,3))
-      closest_cache_index = np.argmin(np.linalg.norm(cache.action_array - random_action,axis=1))
-      test_action = cache.action_array[closest_cache_index,:]
+      random_action = np.random.random_sample((1,4))
 
-      test_action_dist = np.linalg.norm(tested_actions - test_action,axis=1)
+      test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
 
-      if np.any(test_action_dist <= .2) and np.random.random_sample() >= .25:
+      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
-      x, y, r = ImgToObj.phyreActionToPixelAction(test_action)
-      found_intersect = False
-      for frame_index, object_data, goal_data in zip(range(len(seq_data['object'])), seq_data['object'], seq_data['goal']):
-        if found_intersect:
-          break
-        goal_bb = goal_data['bb']
-        object_bb = object_data['bb']
-        time = frame_index * stride / ImgToObj.FRAME_PER_SEC
-        y_time = max(r,y + 1.0/2.0 * ImgToObj.GRAV_PIX_PER_SEC * time * time)
-        test_action_bb = [(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)]
-        test_action_time_bb = [(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)]
-        if rect_intersect(object_bb, test_action_bb) or rect_intersect(object_bb, test_action_time_bb):
-          if statuses[closest_cache_index] != phyre.simulation_cache.INVALID:
-            good_action_count += 1
-            tested_actions_count += 1
-            tested_actions = np.concatenate((tested_actions,test_action[np.newaxis,:]),0)
-            found_intersect = True
-          if statuses[closest_cache_index] == phyre.simulation_cache.SOLVED:
-            solved_action_count += 1
-        elif goal_type == ImgToObj.Layer.dynamic_goal.value and (ImgToObj.rect_intersect(goal_bb, test_action_bb) or ImgToObj.rect_intersect(goal_bb, test_action_time_bb)):
-          if statuses[closest_cache_index] != phyre.simulation_cache.INVALID:
-            good_action_count += 1
-            tested_actions_count += 1
-            found_intersect = True
-            tested_actions = np.concatenate((tested_actions,test_action[np.newaxis,:]),0)
-          if statuses[closest_cache_index] == phyre.simulation_cache.SOLVED:
-            solved_action_count += 1
+      if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
+        eval_stride = 5
+        goal = 3.0 * 60.0/eval_stride
+        sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)
+        if not sim_result.status.is_invalid():
+          good_action_count += 1
+          tested_actions_count += 1
+          score = ImgToObj.objectTouchGoalSequence(sim_result.images)
+          eval_dist = .1+.3*(score==0)
+          random_action[0,3] = eval_dist
+          tested_actions = np.concatenate((tested_actions,random_action),0)
+          solved_task = sim_result.status.is_solved()
+          solved_action_count += solved_task
+
+      
     results.append({'num_good': good_action_count,
                     'num_solved': solved_action_count, 'num_total': len(discrete_actions)})
 
