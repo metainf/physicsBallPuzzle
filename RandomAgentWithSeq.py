@@ -14,7 +14,8 @@ import phyre
 
 import ImgToObj
 
-def evaluate_agent(task_ids, tier,ball_size_pdf):
+def evaluate_agent(task_ids, tier,solved_actions_pdf):
+  cache = phyre.get_default_100k_cache(tier)
   evaluator = phyre.Evaluator(task_ids)
   simulator = phyre.initialize_simulator(task_ids, tier)
   task_data_dict = phyre.loader.load_compiled_task_dict()
@@ -26,6 +27,7 @@ def evaluate_agent(task_ids, tier,ball_size_pdf):
     task_id = task_ids[task_index]
     task_type = task_id.split(":")[0]
     task_data = task_data_dict[task_id]
+    statuses = cache.load_simulation_states(task_id)
     _, _, images, _ = phyre.simulator.magic_ponies(
         task_data, empty_action, need_images=True, stride=stride)
 
@@ -41,23 +43,22 @@ def evaluate_agent(task_ids, tier,ball_size_pdf):
 
     solved_task = False
 
-    while evaluator.get_attempts_for_task(task_index) < phyre.MAX_TEST_ATTEMPTS:
+    while evaluator.get_attempts_for_task(task_index) < phyre.MAX_TEST_ATTEMPTS and not solved_task:
       random_action = np.random.random_sample((1,4))
-      if task_type in ball_size_pdf:
-        random_action[0,2] = ball_size_pdf[task_type].resample(size=1)
-
+      if task_type in solved_actions_pdf:
+        random_action[0,0:3] = np.squeeze(solved_actions_pdf[task_type].resample(size=1))
+      
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
-
-      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
+      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .75:
         continue
       if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
-        eval_stride = 5
+        eval_stride = 10
         goal = 3.0 * 60.0/eval_stride
         sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)
         evaluator.maybe_log_attempt(task_index, sim_result.status)
         if not sim_result.status.is_invalid():
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = .1+.3*(score==0)
+          eval_dist = .05+.15*(score==0)
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()
@@ -66,36 +67,36 @@ def evaluate_agent(task_ids, tier,ball_size_pdf):
   print(tasks_solved, "Tasks solved out of ", len(task_ids), "Total Tasks")
   return (evaluator.get_aucess(), tasks_solved,len(task_ids))
 
-def train_ball_sizes(tasks,tier):
+def train_kde(tasks,tier):
   cache = phyre.get_default_100k_cache(tier)
-  all_solved_sizes = {}
+  all_solved_actions = {}
   for task_id in tasks:
     task_type = task_id.split(":")[0]
     statuses = cache.load_simulation_states(task_id)
     solved_actions = cache.action_array[statuses==phyre.simulation_cache.SOLVED,:]
-    solved_sizes = solved_actions[:,2]
-    if task_type not in all_solved_sizes:
-      all_solved_sizes[task_type] = solved_sizes
+    if task_type not in all_solved_actions:
+      all_solved_actions[task_type] = solved_actions
     else:
-      all_solved_sizes[task_type] = np.concatenate((all_solved_sizes[task_type],solved_sizes),0)
+      all_solved_actions[task_type] = np.concatenate((all_solved_actions[task_type],solved_actions),0)
   
-  ball_size_pdf = {}
-  for task_type in all_solved_sizes.keys():
-    ball_size_pdf[task_type] = gaussian_kde(all_solved_sizes[task_type],bw_method="silverman")
+  solved_actions_pdf = {}
+  for task_type in all_solved_actions.keys():
+    solved_actions_pdf[task_type] = gaussian_kde(np.transpose(all_solved_actions[task_type]),bw_method="silverman")
 
-  return ball_size_pdf
+  return solved_actions_pdf
 
 def worker(fold_id, eval_setup):
   train, dev, test = phyre.get_fold(eval_setup, fold_id)
   action_tier = phyre.eval_setup_to_action_tier(eval_setup)
-  ball_size_pdf = train_ball_sizes(train,action_tier)
-  return evaluate_agent(test, action_tier,ball_size_pdf)
+  solved_actions_pdf = train_kde(train,action_tier)
+  return evaluate_agent(test, action_tier,solved_actions_pdf)
 
 
 faulthandler.enable()
 random.seed(0)
 np.random.seed(0)
-eval_setups = ['ball_cross_template', 'ball_within_template']
+#eval_setups = ['ball_cross_template', 'ball_within_template']
+eval_setups = ['ball_within_template']
 fold_ids = list(range(0, 10))
 print('eval setups', eval_setups)
 print('fold ids', fold_ids)

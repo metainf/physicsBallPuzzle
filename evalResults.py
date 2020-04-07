@@ -1,7 +1,7 @@
 import phyre
 import numpy as np
 
-f = open("random_agent_with_seq_results2020_03_21_151627.csv", "r")
+f = open("random_agent_with_seq_results2020_03_26_100619.csv", "r")
 
 cross_results = []
 
