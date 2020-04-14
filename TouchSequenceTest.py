@@ -19,6 +19,8 @@ action_tier = phyre.eval_setup_to_action_tier(eval_setup)
 
 task_str = '00000:000'
 
+task_data_dict = phyre.loader.load_compiled_task_dict()
+
 simulator = phyre.initialize_simulator([task_str], action_tier)
 #action = [.84,.82,.41]
 #action = [0.8720595836408028,0.1325951705610915,0.40200105882798676]

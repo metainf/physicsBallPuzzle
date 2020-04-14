@@ -163,7 +163,7 @@ def getObjectAndGoalSequence(img_seq):
                                'bb': polygon_bounding_box(contours[0].astype(float))})
       elif len(circles) > 0:
         seq_info[name].append({'type': "circle", 'data': circles[0],
-                               'centroid': circles[0][0:2],
+                               'centroid': np.array(circles[0][0:2]),
                                'bb': circle_bounding_box(circles[0])})
 
   return seq_info
@@ -242,9 +242,8 @@ def rect_intersect(rect1, rect2):
 def check_seq_action_intersect(seq_data,stride,goal_type,action):
   got_intersect = False
   x, y, r = phyreActionToPixelAction(action)
-  found_intersect = False
   for frame_index, object_data, goal_data in zip(range(len(seq_data['object'])), seq_data['object'], seq_data['goal']):
-    if found_intersect:
+    if got_intersect:
       break
     goal_bb = goal_data['bb']
     object_bb = object_data['bb']
@@ -252,6 +251,7 @@ def check_seq_action_intersect(seq_data,stride,goal_type,action):
     y_time = max(r,y + 1.0/2.0 * GRAV_PIX_PER_SEC * time * time)
     test_action_bb = [(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)]
     test_action_time_bb = [(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)]
+
     if rect_intersect(object_bb, test_action_bb) or rect_intersect(object_bb, test_action_time_bb):
       got_intersect = True
     elif goal_type == Layer.dynamic_goal.value and (rect_intersect(goal_bb, test_action_bb) or rect_intersect(goal_bb, test_action_time_bb)):

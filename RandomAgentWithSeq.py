@@ -46,7 +46,7 @@ def evaluate_agent(task_ids, tier,ball_size_pdf):
       if task_type in ball_size_pdf:
         random_action[0,2] = ball_size_pdf[task_type].resample(size=1)
 
-      test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
+      test_action_dist = np.linalg.norm(tested_actions[:,0:2] - random_action[:,0:2],axis=1)
 
       if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
@@ -57,7 +57,7 @@ def evaluate_agent(task_ids, tier,ball_size_pdf):
         evaluator.maybe_log_attempt(task_index, sim_result.status)
         if not sim_result.status.is_invalid():
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = .1+.3*(score==0)
+          eval_dist = .05+.1*(score==0)
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()

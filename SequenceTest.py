@@ -13,7 +13,7 @@ import ImgToObj
 
 eval_setup = 'ball_cross_template'
 tier = 'ball'
-task_str = '00000:000'
+task_str = '00007:008'
 stride = 5
 
 task_dict = phyre.loader.load_compiled_task_dict()
@@ -41,24 +41,28 @@ patches = []
 layer_names = ['object','goal']
 layer_colors = ['g', 'b']
 
+goal_type = ImgToObj.Layer.dynamic_goal.value
+if goal_type not in images[0]:
+  goal_type = ImgToObj.Layer.static_goal.value
+
 for layer_color,layer_name in zip(layer_colors,layer_names):
   for frame_data in seq_data[layer_name]:
     if frame_data['type'] == "polygon":
-      verts = frame_data['data']
+      verts = np.copy(frame_data['data'])
       verts[:,1] = 256.0-verts[:,1]
       polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=True,alpha=.3)
       patches.append(polygon)
 
-      verts = frame_data['bb']
+      verts = np.copy(frame_data['bb'])
       verts[:,1] = 256.0-verts[:,1]
       polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=False,alpha=.3)
       patches.append(polygon)
     elif frame_data['type'] == "circle":
-      circle_data = frame_data['data']
+      circle_data = np.copy(frame_data['data'])
       circle1=plt.Circle((circle_data[0],256.0-circle_data[1]),radius=circle_data[2],facecolor=layer_color,fill=True,alpha=.3)
       ax.add_artist(circle1)
 
-      verts = frame_data['bb']
+      verts = np.copy(frame_data['bb'])
       verts[:,1] = 256.0-verts[:,1]
       polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=False,alpha=.3)
       patches.append(polygon)
@@ -71,13 +75,16 @@ t1 = time.time()
 print(t1-t0,"Cache Load Time")
 discrete_actions = cache.action_array.tolist()
 
-for action_id,action in enumerate(discrete_actions):
-  if statuses[action_id] == phyre.simulation_cache.SOLVED:
+for action_id,action in enumerate(discrete_actions): 
+  if statuses[action_id] == phyre.simulation_cache.SOLVED and ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type, action):
+    x, y, r = ImgToObj.phyreActionToPixelAction(action)
+    circle1=plt.Circle((x,256.0-y),radius=r,facecolor='y',fill=True,alpha=.3)
+    ax.add_artist(circle1)
+  elif statuses[action_id] == phyre.simulation_cache.SOLVED:
     x, y, r = ImgToObj.phyreActionToPixelAction(action)
     circle1=plt.Circle((x,256.0-y),radius=r,facecolor='r',fill=True,alpha=.3)
-    ax.add_artist(circle1)
-
-
+    ax.add_artist(circle1) 
+  
 p1 = PatchCollection(patches,alpha=.3)
 ax.add_collection(p1)
 plt.show()
