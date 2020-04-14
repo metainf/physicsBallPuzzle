@@ -19,7 +19,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
   evaluator = phyre.Evaluator(task_ids)
   simulator = phyre.initialize_simulator(task_ids, tier)
   task_data_dict = phyre.loader.load_compiled_task_dict()
-  stride = 100
+  stride = 5
   empty_action = phyre.simulator.scene_if.UserInput()
   tasks_solved = 0
       
@@ -45,7 +45,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
 
     while evaluator.get_attempts_for_task(task_index) < phyre.MAX_TEST_ATTEMPTS and not solved_task:
       random_action = np.random.random_sample((1,4))
-      if task_type in solved_actions_pdf:
+      if task_type in solved_actions_pdf and np.random.random_sample() >= .25:
         random_action[0,0:3] = np.squeeze(solved_actions_pdf[task_type].resample(size=1))
       
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
@@ -58,7 +58,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
         evaluator.maybe_log_attempt(task_index, sim_result.status)
         if not sim_result.status.is_invalid():
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = .05+.15*(score==0)
+          eval_dist = .25*(score==0) + .1
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()

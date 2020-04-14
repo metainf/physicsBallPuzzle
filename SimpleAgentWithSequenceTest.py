@@ -62,22 +62,27 @@ def count_good_actions(task_ids, tier):
           if found_intersect:
             break
           goal_bb = goal_data['bb']
+          goal_center = goal_data['centroid']
           object_bb = object_data['bb']
+          object_center = object_data['centroid']
+
           time = frame_index * stride / ImgToObj.FRAME_PER_SEC
           y_time = max(r,y + 1.0/2.0 * ImgToObj.GRAV_PIX_PER_SEC * time * time)
           test_action_bb = [(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)]
           test_action_time_bb = [(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)]
           if rect_intersect(object_bb, test_action_bb) or rect_intersect(object_bb, test_action_time_bb):
-            good_action_count += 1
-            found_intersect = True
-            if statuses[action_id] == phyre.simulation_cache.SOLVED:
-              solved_action_count += 1
-          elif goal_type == ImgToObj.Layer.dynamic_goal.value:
-            if ImgToObj.rect_intersect(goal_bb, test_action_bb) or ImgToObj.rect_intersect(goal_bb, test_action_time_bb):
+            if True:# (goal_center[0] - object_center[0]) * (object_center[0] - x) > 0:
               good_action_count += 1
               found_intersect = True
               if statuses[action_id] == phyre.simulation_cache.SOLVED:
                 solved_action_count += 1
+          elif goal_type == ImgToObj.Layer.dynamic_goal.value:
+            if ImgToObj.rect_intersect(goal_bb, test_action_bb) or ImgToObj.rect_intersect(goal_bb, test_action_time_bb):
+              if True: #(object_center[0] - goal_center[0]) * (goal_center[0] - x) > 0:
+                good_action_count += 1
+                found_intersect = True
+                if statuses[action_id] == phyre.simulation_cache.SOLVED:
+                  solved_action_count += 1
     results.append({'num_good': good_action_count,
                     'num_solved': solved_action_count, 'num_total': len(discrete_actions)})
 
