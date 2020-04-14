@@ -16,23 +16,27 @@ import phyre
 import ImgToObj
 
 
-def evalAction(args, simulator, task_index, evaluator):
+def evalAction(args, seq_data, goal_type, simulator, task_index, evaluator):
   x = args['x']
   y = args['y']
   r = args['r']
   stride = 5
   goal = 3 * 60/stride
-  sim_result = simulator.simulate_action(
-      task_index, [x, y, r], need_images=True, stride=stride)
-  evaluator.maybe_log_attempt(task_index, sim_result.status)
   score = 0
-  if not sim_result.status.is_invalid():
-    score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-  if score < goal:
-    score = -score + (score - goal) * (score - goal)
-  else:
-    score = -score
-  return{'loss': score, 'status': STATUS_OK, 'solved': sim_result.status.is_solved()}
+  score = -score + (score - goal) * (score - goal)
+  solved = False
+  if ImgToObj.check_seq_action_intersect(seq_data, 100, goal_type,np.array([x,y,r])):
+    sim_result = simulator.simulate_action(
+        task_index, [x, y, r], need_images=True, stride=stride)
+    evaluator.maybe_log_attempt(task_index, sim_result.status)
+    if not sim_result.status.is_invalid():
+        score = ImgToObj.objectTouchGoalSequence(sim_result.images)
+    if score < goal:
+        score = -score + (score - goal) * (score - goal)
+    else:
+        score = -score
+    solved = sim_result.status.is_solved()
+  return{'loss': score, 'status': STATUS_OK, 'solved': solved}
 
 
 def evaluate_simple_agent(tasks, tier):
@@ -49,15 +53,28 @@ def evaluate_simple_agent(tasks, tier):
   # Create a simulator for the task and tier.
   simulator = phyre.initialize_simulator(tasks, tier)
   evaluator = phyre.Evaluator(tasks)
-  assert tuple(tasks) == simulator.task_ids
+  task_data_dict = phyre.loader.load_compiled_task_dict()
+  empty_action = phyre.simulator.scene_if.UserInput()
   tasks_solved = 0
   for task_index in tqdm(range(len(tasks)), desc='Evaluate tasks'):
-    simFunc = partial(evalAction, simulator=simulator,
+    task_id = tasks[task_index]
+    task_data = task_data_dict[task_id]
+    _, _, images, _ = phyre.simulator.magic_ponies(
+        task_data, empty_action, need_images=True, stride=100)
+
+    evaluator.maybe_log_attempt(task_index, phyre.simulation_cache.NOT_SOLVED)
+
+    seq_data = ImgToObj.getObjectAndGoalSequence(images)
+    goal_type = ImgToObj.Layer.dynamic_goal.value
+    if goal_type not in images[0]:
+      goal_type = ImgToObj.Layer.static_goal.value
+    
+    simFunc = partial(evalAction, seq_data=seq_data, goal_type=goal_type, simulator=simulator,
                       task_index=task_index, evaluator=evaluator)
     space = {
         'x': hp.uniform('x', 0, 1),
         'y': hp.uniform('y', 0, 1),
-        'r': hp.uniform('y', 0, 1),
+        'r': hp.uniform('r', 0, 1),
     }
     trials = Trials()
 
@@ -101,7 +118,7 @@ f = open("simple_hyperopt_agent_results{}.csv".format(dt_string), "w+")
 print('eval_setup,fold_id,AUCESS', file=f)
 
 for eval_setup in eval_setups:
-  pool = multiprocessing.Pool(8)
+  pool = multiprocessing.Pool(6)
   partial_worker = partial(
     worker,
     eval_setup=eval_setup)

@@ -39,7 +39,7 @@ def count_good_actions(task_ids, tier):
   results = []
   stride = 100
   empty_action = phyre.simulator.scene_if.UserInput()
-  max_actions = 100
+  max_actions = 25
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
     task_id = task_ids[task_index]
     task_data = task_data_dict[task_id]
@@ -77,7 +77,7 @@ def count_good_actions(task_ids, tier):
           good_action_count += 1
           tested_actions_count += 1
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = .1+.3*(score==0)
+          eval_dist = 0.0
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()
