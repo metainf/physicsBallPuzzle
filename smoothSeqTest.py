@@ -16,7 +16,7 @@ stride = 5
 action_tier = phyre.eval_setup_to_action_tier(eval_setup)
 goal = 3.0 * 60.0/stride
 
-task_str = '00000:000'
+task_str = '00004:243'
 task_dict = phyre.loader.load_compiled_task_dict()
 task = task_dict[task_str]
 _, _, empty_images,_ = phyre.simulator.magic_ponies(task, phyre.simulator.scene_if.UserInput(),need_images=True,stride = stride)

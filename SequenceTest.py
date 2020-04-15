@@ -13,7 +13,7 @@ import ImgToObj
 
 eval_setup = 'ball_cross_template'
 tier = 'ball'
-task_str = '00007:008'
+task_str = '00004:243'
 stride = 5
 
 task_dict = phyre.loader.load_compiled_task_dict()

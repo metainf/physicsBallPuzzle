@@ -4,6 +4,8 @@ import cv2
 import polytri
 from enum import Enum
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 GRAV_PIX_PER_SEC = -30.0
 FRAME_PER_SEC = 60.0
@@ -58,7 +60,7 @@ def seperateCircleFromOtherContours(contours):
   nonCircles = []
   for contour in contours:
     contour = np.squeeze(contour)
-    if cv2.contourArea(contour) > 0.0:
+    if contour.shape[0] > 3 and cv2.contourArea(contour) > 15.0:
       if isContourCircle(contour):
         (x, y), radius = cv2.minEnclosingCircle(contour)
         circles.append((x, y, radius))
@@ -127,7 +129,7 @@ def phyreToObj(img, action=None):
   return scene_objects
 
 
-def getObjectAndGoalSequence(img_seq):
+def getObjectAndGoalSequence(img_seq,debug_title=None):
   seq_info = {'object': [], 'goal': []}
   layer_names = ['object', 'goal']
   goal_type = Layer.dynamic_goal.value
@@ -143,8 +145,8 @@ def getObjectAndGoalSequence(img_seq):
     for name, layer in zip(layer_names, layers):
       gray_layer = np.full_like(layer, 255, dtype=np.uint8)
       gray_layer = np.where(layer, gray_layer, 0)
-      kernel = np.ones((3, 3), np.uint8)
-      gray_layer = cv2.morphologyEx(gray_layer, cv2.MORPH_OPEN, kernel)
+      kernel = np.ones((11, 11), np.uint8)
+      gray_layer = cv2.morphologyEx(gray_layer, cv2.MORPH_CLOSE, kernel)
       contours, _ = cv2.findContours(
           gray_layer, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -154,8 +156,41 @@ def getObjectAndGoalSequence(img_seq):
       # Simplify the non circle contours
       contours = simplifyContours(contours)
 
-      assert len(circles) <= 1, "More than one circle?"
-      assert len(contours) <= 1, "More than one polygon?"
+      if len(circles) > 1:
+        start_img = phyre.vis.observations_to_float_rgb(img)
+        fig, ax = plt.subplots()
+        ax.imshow(start_img)
+        for circle in circles:
+          circle1=plt.Circle((circle[0],256.0-circle[1]),radius=circle[2],fill=False)
+          ax.add_artist(circle1)
+        plt.show()
+
+        fig, ax = plt.subplots()
+        ax.imshow(gray_layer)
+        plt.show()
+
+      if len(contours) > 1:
+        start_img = phyre.vis.observations_to_float_rgb(img)
+        fig, ax = plt.subplots()
+        ax.imshow(start_img)
+        patches = []
+        for contour in contours:
+          print(cv2.contourArea(contour))
+          verts = np.copy(contour)
+          verts[:,1] = 256.0-verts[:,1]
+          polygon = Polygon(verts,edgecolor='k',fill=False,alpha=.3)
+          patches.append(polygon)
+        p1 = PatchCollection(patches,alpha=.3)
+        ax.add_collection(p1)
+        plt.show()
+
+        fig, ax = plt.subplots()
+        ax.imshow(gray_layer)
+        plt.show()
+
+
+      assert len(circles) < 2, "More than one circle?"
+      assert len(contours) < 2, "More than one polygon?"
 
       if len(contours) > 0:
         seq_info[name].append({'type': "polygon", 'data': contours[0],
@@ -257,3 +292,38 @@ def check_seq_action_intersect(seq_data,stride,goal_type,action):
     elif goal_type == Layer.dynamic_goal.value and (rect_intersect(goal_bb, test_action_bb) or rect_intersect(goal_bb, test_action_time_bb)):
       got_intersect = True
   return got_intersect
+
+def draw_seq(seq_data,images):
+
+  start_img = phyre.vis.observations_to_float_rgb(images[0])
+  fig, ax = plt.subplots()
+  ax.imshow(start_img)
+  patches = []
+  layer_names = ['object','goal']
+  layer_colors = ['g', 'b']
+
+  for layer_color,layer_name in zip(layer_colors,layer_names):
+    for frame_data in seq_data[layer_name]:
+      if frame_data['type'] == "polygon":
+        verts = np.copy(frame_data['data'])
+        verts[:,1] = 256.0-verts[:,1]
+        polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=True,alpha=.3)
+        patches.append(polygon)
+
+        verts = np.copy(frame_data['bb'])
+        verts[:,1] = 256.0-verts[:,1]
+        polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=False,alpha=.3)
+        patches.append(polygon)
+      elif frame_data['type'] == "circle":
+        circle_data = np.copy(frame_data['data'])
+        circle1=plt.Circle((circle_data[0],256.0-circle_data[1]),radius=circle_data[2],facecolor=layer_color,fill=True,alpha=.3)
+        ax.add_artist(circle1)
+
+        verts = np.copy(frame_data['bb'])
+        verts[:,1] = 256.0-verts[:,1]
+        polygon = Polygon(verts,facecolor=layer_color,edgecolor='k',fill=False,alpha=.3)
+        patches.append(polygon)
+    
+  p1 = PatchCollection(patches,alpha=.3)
+  ax.add_collection(p1)
+  plt.show()

@@ -69,8 +69,8 @@ def count_good_actions(task_ids, tier):
       min_index = np.argmin(np.linalg.norm(cache.action_array - random_action[:,0:3],axis=1))
       if statuses[min_index] == phyre.simulation_cache.INVALID:
         continue
-      #if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
-      #  continue
+      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
+        continue
 
       if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
         eval_stride = 5
@@ -139,7 +139,7 @@ simulator = phyre.initialize_simulator(task_ids, tier)
 
 print(len(task_ids))
 
-pool_count = 1
+pool_count = 8
 pool = multiprocessing.Pool(pool_count)
 partial_worker = partial(
     count_good_actions,
