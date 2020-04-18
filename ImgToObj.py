@@ -60,7 +60,7 @@ def seperateCircleFromOtherContours(contours):
   nonCircles = []
   for contour in contours:
     contour = np.squeeze(contour)
-    if contour.shape[0] > 3 and cv2.contourArea(contour) > 15.0:
+    if contour.shape[0] >= 3 and cv2.contourArea(contour) > 50.0:
       if isContourCircle(contour):
         (x, y), radius = cv2.minEnclosingCircle(contour)
         circles.append((x, y, radius))
@@ -145,7 +145,7 @@ def getObjectAndGoalSequence(img_seq,debug_title=None):
     for name, layer in zip(layer_names, layers):
       gray_layer = np.full_like(layer, 255, dtype=np.uint8)
       gray_layer = np.where(layer, gray_layer, 0)
-      kernel = np.ones((11, 11), np.uint8)
+      kernel = np.ones((21, 21), np.uint8)
       gray_layer = cv2.morphologyEx(gray_layer, cv2.MORPH_CLOSE, kernel)
       contours, _ = cv2.findContours(
           gray_layer, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)

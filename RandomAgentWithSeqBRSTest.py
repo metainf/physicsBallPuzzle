@@ -40,9 +40,9 @@ def count_good_actions(task_ids, tier):
   stride = 100
   empty_action = phyre.simulator.scene_if.UserInput()
   max_actions = 100
-  alpha = .1
-  N = 3
-  max_search_actions = 30
+  alpha = 1.0
+  N = 5
+  max_search_actions = max_actions - (N*2+1) * 4
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
     task_id = task_ids[task_index]
     task_data = task_data_dict[task_id]
@@ -66,9 +66,6 @@ def count_good_actions(task_ids, tier):
       random_action = np.random.random_sample((1,5))
 
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
-      min_index = np.argmin(np.linalg.norm(cache.action_array - random_action[:,0:3],axis=1))
-      if statuses[min_index] == phyre.simulation_cache.INVALID:
-        continue
       if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
 
@@ -92,35 +89,49 @@ def count_good_actions(task_ids, tier):
     if solved_action_count <= 0:
       tested_actions = np.delete(tested_actions,0,0)
       theta = tested_actions[np.argmax(tested_actions[:,4]),0:3]
-      while tested_actions_count < max_actions and solved_action_count <= 0:
-        delta = np.random.normal(0,.1,(N,3))
+      theta_score = tested_actions[np.argmax(tested_actions[:,4]),4]
+      while tested_actions_count + 2*N+1 < max_actions and solved_action_count <= 0:
+        delta = np.random.normal(0,.2 ,(N,3))
         test_actions_pos = theta + delta
         test_actions_neg = theta - delta
+        old_theta = np.copy(theta)
         for i in range(N):
-          sim_result_pos = simulator.simulate_action(task_index, np.squeeze(test_actions_pos[i,:]), need_images=True, stride=eval_stride)
-          sim_result_neg = simulator.simulate_action(task_index, np.squeeze(test_actions_neg[i,:]), need_images=True, stride=eval_stride)
           
-          if not sim_result_pos.status.is_invalid():
-            pos_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_pos.images)
-            pos_score = 1.0 - np.linalg.norm(pos_result_seq_data['object'][-1]['centroid'] - pos_result_seq_data['goal'][-1]['centroid']) / 256.0
-            pos_score += ImgToObj.objectTouchGoalSequence(sim_result_pos.images) / goal
-          else:
-            pos_score = 0
-          
-          if not sim_result_neg.status.is_invalid():
-            neg_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_neg.images)
-            neg_score = 1.0 - np.linalg.norm(neg_result_seq_data['object'][-1]['centroid'] - neg_result_seq_data['goal'][-1]['centroid']) / 256.0
-            neg_score += ImgToObj.objectTouchGoalSequence(sim_result_neg.images) / goal
-          else:
-            neg_score = 0
+          pos_score = 0
+          if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(test_actions_pos[i,:])):
+            sim_result_pos = simulator.simulate_action(task_index, np.squeeze(test_actions_pos[i,:]), need_images=True, stride=eval_stride)
+            if not sim_result_pos.status.is_invalid():
+              tested_actions_count += 1
+              good_action_count += 1
+              pos_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_pos.images)
+              pos_score = 1.0 - np.linalg.norm(pos_result_seq_data['object'][-1]['centroid'] - pos_result_seq_data['goal'][-1]['centroid']) / 256.0
+              pos_score += ImgToObj.objectTouchGoalSequence(sim_result_pos.images) / goal
+              solved_task = sim_result_pos.status.is_solved()
+              solved_action_count += solved_task
+            
+          neg_score = 0
+          if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(test_actions_neg[i,:])):
+            sim_result_neg = simulator.simulate_action(task_index, np.squeeze(test_actions_neg[i,:]), need_images=True, stride=eval_stride)
+            if not sim_result_neg.status.is_invalid():
+              tested_actions_count += 1
+              good_action_count += 1
+              neg_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_neg.images)
+              neg_score = 1.0 - np.linalg.norm(neg_result_seq_data['object'][-1]['centroid'] - neg_result_seq_data['goal'][-1]['centroid']) / 256.0
+              neg_score += ImgToObj.objectTouchGoalSequence(sim_result_neg.images) / goal
+              solved_task = sim_result_neg.status.is_solved()
+              solved_action_count += solved_task
+
           theta = theta + alpha / N * (pos_score - neg_score) * delta[i,:]
         
         sim_result = simulator.simulate_action(task_index, np.squeeze(theta), need_images=True, stride=eval_stride)
         
         if not sim_result.status.is_invalid():
           result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result.images)
+          score = 1.0 - np.linalg.norm(result_seq_data['object'][-1]['centroid'] - result_seq_data['goal'][-1]['centroid']) / 256.0
+          score += ImgToObj.objectTouchGoalSequence(sim_result.images) / goal
+          #print(theta,score,old_theta,theta_score,sim_result.status.is_solved())
           good_action_count += 1
-          tested_actions_count += N * 2 + 1
+          tested_actions_count += 1
           solved_task = sim_result.status.is_solved()
           solved_action_count += solved_task
 
