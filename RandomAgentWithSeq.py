@@ -51,7 +51,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
       if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .75:
         continue
-      if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
+      if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
         eval_stride = 10
         goal = 3.0 * 60.0/eval_stride
         sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)

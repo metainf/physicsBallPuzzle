@@ -39,7 +39,7 @@ def count_good_actions(task_ids, tier):
   results = []
   stride = 100
   empty_action = phyre.simulator.scene_if.UserInput()
-  max_actions = 25
+  max_actions = 100
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
     task_id = task_ids[task_index]
     task_data = task_data_dict[task_id]
@@ -63,13 +63,10 @@ def count_good_actions(task_ids, tier):
       random_action = np.random.random_sample((1,4))
 
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
-      min_index = np.argmin(np.linalg.norm(cache.action_array - random_action[:,0:3],axis=1))
-      if statuses[min_index] == phyre.simulation_cache.INVALID:
+      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
-      #if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
-      #  continue
 
-      if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
+      if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
         eval_stride = 5
         goal = 3.0 * 60.0/eval_stride
         sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)
@@ -77,7 +74,7 @@ def count_good_actions(task_ids, tier):
           good_action_count += 1
           tested_actions_count += 1
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = 0.0
+          eval_dist = 0.1
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()

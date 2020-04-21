@@ -274,9 +274,32 @@ def rect_intersect(rect1, rect2):
 
   return True
 
-def check_seq_action_intersect(seq_data,stride,goal_type,action):
+def check_seq_action_intersect(initial_scene,seq_data,stride,goal_type,action):
   got_intersect = False
   x, y, r = phyreActionToPixelAction(action)
+  action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, 0), (x-r, 0)])
+  goal_data = seq_data['goal'][0]
+  object_data = seq_data['object'][0]
+
+  goal_bb = goal_data['bb']
+  goal_center = goal_data['centroid']
+  object_bb = object_data['bb']
+  object_center = object_data['centroid']
+  if (goal_center[0] - object_center[0]) * (object_center[0] - x) > 0 and rect_intersect(object_bb, action_bb):
+    action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, object_center[1]), (x-r, object_center[1])])
+    tl = action_bb[0, :].astype(int)
+    br = action_bb[2, :].astype(int)
+    rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+    if Layer.static_body not in rect_img:
+      got_intersect = True
+  elif goal_type == Layer.dynamic_goal.value:
+    if (object_center[0] - goal_center[0]) * (goal_center[0] - x) > 0 and rect_intersect(goal_bb, action_bb):
+      action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, goal_center[1]), (x-r, goal_center[1])])
+      tl = action_bb[0, :].astype(int)
+      br = action_bb[2, :].astype(int)
+      rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+      if Layer.static_body not in rect_img:
+        got_intersect = True
   for frame_index, object_data, goal_data in zip(range(len(seq_data['object'])), seq_data['object'], seq_data['goal']):
     if got_intersect:
       break
@@ -284,13 +307,26 @@ def check_seq_action_intersect(seq_data,stride,goal_type,action):
     object_bb = object_data['bb']
     time = frame_index * stride / FRAME_PER_SEC
     y_time = max(r,y + 1.0/2.0 * GRAV_PIX_PER_SEC * time * time)
-    test_action_bb = [(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)]
-    test_action_time_bb = [(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)]
+    test_action_bb = np.array([(x-r, y+r), (x+r, y+r), (x+r, y-r), (x-r, y-r)])
+    test_action_time_bb = np.array([(x-r, y_time+r), (x+r, y_time+r), (x+r, y_time-r), (x-r, y_time-r)])
 
-    if rect_intersect(object_bb, test_action_bb) or rect_intersect(object_bb, test_action_time_bb):
+    if rect_intersect(object_bb, test_action_bb):
       got_intersect = True
-    elif goal_type == Layer.dynamic_goal.value and (rect_intersect(goal_bb, test_action_bb) or rect_intersect(goal_bb, test_action_time_bb)):
-      got_intersect = True
+    elif rect_intersect(object_bb, test_action_time_bb):
+      tl = np.maximum(255,np.minimum(0,test_action_bb[0, :].astype(int)))
+      br = np.maximum(255,np.minimum(0,test_action_time_bb[2, :].astype(int)))
+      rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+      if Layer.static_body not in rect_img:
+        got_intersect = True
+    elif goal_type == Layer.dynamic_goal.value:
+      if rect_intersect(goal_bb, test_action_bb):
+        got_intersect = True
+      elif rect_intersect(goal_bb, test_action_time_bb):
+        tl = np.maximum(255,np.minimum(0,test_action_bb[0, :].astype(int)))
+        br = np.maximum(255,np.minimum(0,test_action_time_bb[2, :].astype(int)))
+        rect_img = initial_scene[br[1]:tl[1],tl[0]:br[0]]
+        if Layer.static_body not in rect_img:
+          got_intersect = True
   return got_intersect
 
 def draw_seq(seq_data,images):
