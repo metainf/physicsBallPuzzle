@@ -37,7 +37,7 @@ def count_good_actions(task_ids, tier):
   task_data_dict = phyre.loader.load_compiled_task_dict()
   simulator = phyre.initialize_simulator(task_ids, tier)
   results = []
-  stride = 100
+  stride = 5
   empty_action = phyre.simulator.scene_if.UserInput()
   max_actions = 100
   alpha = 1.0
@@ -78,7 +78,7 @@ def count_good_actions(task_ids, tier):
           result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result.images)
           good_action_count += 1
           tested_actions_count += 1
-          eval_dist = .1
+          eval_dist = .05
           random_action[0,3] = eval_dist
           random_action[0,4] = 1.0 - np.linalg.norm(seq_data['object'][-1]['centroid'] - seq_data['goal'][-1]['centroid']) / 256.0
           random_action[0,4] += ImgToObj.objectTouchGoalSequence(sim_result.images) / goal
@@ -102,7 +102,7 @@ def count_good_actions(task_ids, tier):
         deltas = np.zeros((N,3))
         i = 0
         while i < N and tested_actions_count + 2*N+1 < max_actions:
-          delta = np.random.normal(0,.1 ,(1,3))      
+          delta = np.random.normal(0,.2 ,(1,3))      
           test_action_pos = theta + delta
           test_action_neg = theta - delta
 
@@ -150,11 +150,13 @@ def count_good_actions(task_ids, tier):
           result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result.images)
           score = 1.0 - np.linalg.norm(result_seq_data['object'][-1]['centroid'] - result_seq_data['goal'][-1]['centroid']) / 256.0
           score += ImgToObj.objectTouchGoalSequence(sim_result.images) / goal
-          print(task_id,theta,score,old_theta,theta_score,sim_result.status.is_solved(),tested_actions_count)
+          #print(task_id,theta,score,old_theta,theta_score,sim_result.status.is_solved(),tested_actions_count)
           good_action_count += 1
           tested_actions_count += 1
           solved_task = sim_result.status.is_solved()
           solved_action_count += solved_task
+        else:
+          theta = old_theta
 
     results.append({'num_good': good_action_count,
                     'num_solved': solved_action_count, 'num_total': len(discrete_actions)})
