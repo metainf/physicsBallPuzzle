@@ -1,7 +1,7 @@
 import phyre
 import numpy as np
 
-f = open("random_agent_with_seq_results2020_03_26_100619.csv", "r")
+f = open("simple_agent_results2020_03_18_162202.csv", "r")
 
 cross_results = []
 
@@ -14,6 +14,7 @@ for line in f:
   elif lineData[0] == "ball_within_template":
     within_results.append(float(lineData[2]))
 
+print(f.name)
 print("Ball Cross Mean:", np.mean(cross_results), "STD:", np.std(cross_results))
 
 print("Ball Within Mean:", np.mean(within_results),

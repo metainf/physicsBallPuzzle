@@ -150,7 +150,7 @@ simulator = phyre.initialize_simulator(task_ids, tier)
 
 print(len(task_ids))
 
-pool_count = 8
+pool_count = 4
 pool = multiprocessing.Pool(pool_count)
 partial_worker = partial(
     count_good_actions,
