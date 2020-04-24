@@ -146,7 +146,8 @@ faulthandler.enable()
 random.seed(0)
 np.random.seed(0)
 #eval_setups = ['ball_cross_template', 'ball_within_template']
-eval_setups = ['ball_within_template']
+#eval_setups = ['ball_within_template']
+eval_setups = ['ball_cross_template']
 fold_ids = list(range(0, 10))
 print('eval setups', eval_setups)
 print('fold ids', fold_ids)
@@ -155,7 +156,7 @@ now = datetime.now()
 dt_string = now.strftime("%Y_%m_%d_%H%M%S")
 
 f = open("random_agent_with_seqBRS_results{}.csv".format(dt_string), "w+")
-print('eval_setup,fold_id,AUCESS,Solved,Total', file=f)
+print('eval_setup,fold_id,AUCESS,Solved,Total,Percent_Solved', file=f)
 
 for eval_setup in eval_setups:
   pool = multiprocessing.Pool(4)
@@ -164,4 +165,4 @@ for eval_setup in eval_setups:
       eval_setup=eval_setup)
   results = pool.imap(partial_worker, list(range(0, 10)))
   for fold_id, result in enumerate(results):
-    print('{},{},{},{},{}'.format(eval_setup, fold_id, result[0],result[1],result[2]), file=f)
+    print('{},{},{},{},{},{}'.format(eval_setup, fold_id, result[0],result[1],result[2],float(result[1])/result[2]), file=f)

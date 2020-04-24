@@ -57,7 +57,7 @@ def evaluate_simple_agent(tasks, tier):
     space = {
         'x': hp.uniform('x', 0, 1),
         'y': hp.uniform('y', 0, 1),
-        'r': hp.uniform('y', 0, 1),
+        'r': hp.uniform('r', 0, 1),
     }
     trials = Trials()
 

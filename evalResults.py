@@ -18,6 +18,7 @@ for line in f:
     within_solved.append(float(lineData[3]) / float(lineData[4]))
 
 print(f.name)
+<<<<<<< HEAD
 
 if len(cross_results) > 0:
   print("Ball Cross AUCCESS  Mean:", np.mean(cross_results), "STD:", np.std(cross_results))
@@ -27,3 +28,13 @@ if len(within_results) > 0:
   print("Ball Within AUCCESS Mean:", np.mean(within_results),"STD:", np.std(within_results))
   print("Ball Within Solved Mean:", np.mean(within_solved), "STD:", np.std(within_solved))
 
+=======
+
+if len(cross_results) > 0:
+  print("Ball Cross AUCCESS  Mean:", np.mean(cross_results), "STD:", np.std(cross_results))
+  print("Ball Cross Solved Mean:", np.mean(cross_solved), "STD:", np.std(cross_solved))
+
+if len(within_results) > 0:
+  print("Ball Within AUCCESS Mean:", np.mean(within_results),"STD:", np.std(within_results))
+  print("Ball Within Solved Mean:", np.mean(within_solved), "STD:", np.std(within_solved))
+>>>>>>> Running some tests
