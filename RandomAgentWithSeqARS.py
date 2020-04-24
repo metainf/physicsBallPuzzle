@@ -78,6 +78,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
       tested_actions = np.delete(tested_actions,0,0)
       theta = tested_actions[np.argmax(tested_actions[:,4]),0:3]
       theta_score = tested_actions[np.argmax(tested_actions[:,4]),4]
+
       while evaluator.get_attempts_for_task(task_index) + 2*N+1 < phyre.MAX_TEST_ATTEMPTS and not solved_task:
         scores = np.zeros((N,2))
         deltas = np.zeros((N,3))

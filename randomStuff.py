@@ -27,8 +27,12 @@ print(task_ids)
 evaluator = phyre.Evaluator(task_ids)
 print(evaluator.task_ids)
 for i in range(len(task_ids)-1):
-    while evaluator.get_attempts_for_task(i) < phyre.MAX_TEST_ATTEMPTS-50:
+    while evaluator.get_attempts_for_task(i) < phyre.MAX_TEST_ATTEMPTS:
         evaluator.maybe_log_attempt(i, phyre.simulation_cache.SOLVED)
+
+while evaluator.get_attempts_for_task(1) < phyre.MAX_TEST_ATTEMPTS - 50:
+        evaluator.maybe_log_attempt(1, phyre.simulation_cache.NOT_SOLVED)
+evaluator.maybe_log_attempt(1, phyre.simulation_cache.SOLVED)
 print(evaluator.get_aucess())
 
 x = np.array([3, 4, 2, 1,5,6])

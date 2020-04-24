@@ -89,13 +89,15 @@ def evaluate_simple_agent(tasks, tier):
     good_action_index = 0
 
     while evaluator.get_attempts_for_task(task_index) < phyre.MAX_TEST_ATTEMPTS and not solved_task:
-      action = [.5, .5, .5]
+      action = random.choice(good_actions)
+      '''
       if good_action_index < len(good_actions):
         action = good_actions[good_action_index]
         good_action_index += 1
       else:
         action_index = random.randint(0, cache.action_array.shape[0]-1)
         action = cache.action_array[action_index, :]
+      '''
 
       sim_result = simulator.simulate_action(
           task_index, action, need_images=False)

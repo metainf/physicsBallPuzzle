@@ -37,7 +37,7 @@ def count_good_actions(task_ids, tier):
   task_data_dict = phyre.loader.load_compiled_task_dict()
   simulator = phyre.initialize_simulator(task_ids, tier)
   results = []
-  stride = 100
+  stride = 50
   empty_action = phyre.simulator.scene_if.UserInput()
   max_actions = 100
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
@@ -66,7 +66,7 @@ def count_good_actions(task_ids, tier):
       if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
 
-      if ImgToObj.check_seq_action_intersect(seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
+      if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
         eval_stride = 5
         goal = 3.0 * 60.0/eval_stride
         sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)
@@ -74,7 +74,7 @@ def count_good_actions(task_ids, tier):
           good_action_count += 1
           tested_actions_count += 1
           score = ImgToObj.objectTouchGoalSequence(sim_result.images)
-          eval_dist = 0.1
+          eval_dist = 0.0
           random_action[0,3] = eval_dist
           tested_actions = np.concatenate((tested_actions,random_action),0)
           solved_task = sim_result.status.is_solved()
@@ -96,7 +96,7 @@ simulator = phyre.initialize_simulator(task_ids, tier)
 
 print(len(task_ids))
 
-pool_count = 8
+pool_count = 4
 pool = multiprocessing.Pool(pool_count)
 partial_worker = partial(
     count_good_actions,

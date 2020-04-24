@@ -42,6 +42,8 @@ def count_good_actions(task_ids, tier):
   max_actions = 100
   alpha = 1.0
   N = 5
+  eval_stride = 1
+  goal = 3.0 * 60.0/eval_stride
   max_search_actions = max_actions - (N*2+1) * 4
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
     task_id = task_ids[task_index]
@@ -70,8 +72,7 @@ def count_good_actions(task_ids, tier):
         continue
 
       if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
-        eval_stride = 5
-        goal = 3.0 * 60.0/eval_stride
+        
         sim_result = simulator.simulate_action(task_index, np.squeeze(random_action[:,0:3]), need_images=True, stride=eval_stride)
         if not sim_result.status.is_invalid():
           result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result.images)
@@ -90,38 +91,41 @@ def count_good_actions(task_ids, tier):
       tested_actions = np.delete(tested_actions,0,0)
       theta = tested_actions[np.argmax(tested_actions[:,4]),0:3]
       theta_score = tested_actions[np.argmax(tested_actions[:,4]),4]
+      #print(theta_score,tested_actions_count)
       while tested_actions_count + 2*N+1 < max_actions and solved_action_count <= 0:
-        delta = np.random.normal(0,.2 ,(N,3))
-        test_actions_pos = theta + delta
-        test_actions_neg = theta - delta
         old_theta = np.copy(theta)
-        for i in range(N):
-          
+        i = 0
+        while i < N and tested_actions_count + 2*N+1 < max_actions:
+          delta = np.random.normal(0,.2 ,(1,3))      
+          test_action_pos = theta + delta
+          test_action_neg = theta - delta
+
           pos_score = 0
-          if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(test_actions_pos[i,:])):
-            sim_result_pos = simulator.simulate_action(task_index, np.squeeze(test_actions_pos[i,:]), need_images=True, stride=eval_stride)
-            if not sim_result_pos.status.is_invalid():
-              tested_actions_count += 1
-              good_action_count += 1
-              pos_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_pos.images)
-              pos_score = 1.0 - np.linalg.norm(pos_result_seq_data['object'][-1]['centroid'] - pos_result_seq_data['goal'][-1]['centroid']) / 256.0
-              pos_score += ImgToObj.objectTouchGoalSequence(sim_result_pos.images) / goal
-              solved_task = sim_result_pos.status.is_solved()
-              solved_action_count += solved_task
+          sim_result_pos = simulator.simulate_action(task_index, np.squeeze(test_action_pos), need_images=True, stride=eval_stride)
+          if not sim_result_pos.status.is_invalid():
+            tested_actions_count += 1
+            good_action_count += 1
+            pos_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_pos.images)
+            pos_score = 1.0 - np.linalg.norm(pos_result_seq_data['object'][-1]['centroid'] - pos_result_seq_data['goal'][-1]['centroid']) / 256.0
+            pos_score += ImgToObj.objectTouchGoalSequence(sim_result_pos.images) / goal
+            solved_task = sim_result_pos.status.is_solved()
+            solved_action_count += solved_task
             
           neg_score = 0
-          if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(test_actions_neg[i,:])):
-            sim_result_neg = simulator.simulate_action(task_index, np.squeeze(test_actions_neg[i,:]), need_images=True, stride=eval_stride)
-            if not sim_result_neg.status.is_invalid():
-              tested_actions_count += 1
-              good_action_count += 1
-              neg_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_neg.images)
-              neg_score = 1.0 - np.linalg.norm(neg_result_seq_data['object'][-1]['centroid'] - neg_result_seq_data['goal'][-1]['centroid']) / 256.0
-              neg_score += ImgToObj.objectTouchGoalSequence(sim_result_neg.images) / goal
-              solved_task = sim_result_neg.status.is_solved()
-              solved_action_count += solved_task
+          sim_result_neg = simulator.simulate_action(task_index, np.squeeze(test_action_neg), need_images=True, stride=eval_stride)
+          if not sim_result_neg.status.is_invalid():
+            tested_actions_count += 1
+            good_action_count += 1
+            neg_result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result_neg.images)
+            neg_score = 1.0 - np.linalg.norm(neg_result_seq_data['object'][-1]['centroid'] - neg_result_seq_data['goal'][-1]['centroid']) / 256.0
+            neg_score += ImgToObj.objectTouchGoalSequence(sim_result_neg.images) / goal
+            solved_task = sim_result_neg.status.is_solved()
+            solved_action_count += solved_task
+          
+          if pos_score != 0 or neg_score != 0:
+            i += 1
 
-          theta = theta + alpha / N * (pos_score - neg_score) * delta[i,:]
+          theta = theta + alpha / N * (pos_score - neg_score) * delta
         
         sim_result = simulator.simulate_action(task_index, np.squeeze(theta), need_images=True, stride=eval_stride)
         
@@ -129,12 +133,18 @@ def count_good_actions(task_ids, tier):
           result_seq_data = ImgToObj.getObjectAndGoalSequence(sim_result.images)
           score = 1.0 - np.linalg.norm(result_seq_data['object'][-1]['centroid'] - result_seq_data['goal'][-1]['centroid']) / 256.0
           score += ImgToObj.objectTouchGoalSequence(sim_result.images) / goal
-          #print(theta,score,old_theta,theta_score,sim_result.status.is_solved())
+          #print(task_id,theta,score,old_theta,theta_score,sim_result.status.is_solved())
+          if(score < theta_score):
+            theta = old_theta
+          else:
+            theta_score = score
           good_action_count += 1
           tested_actions_count += 1
           solved_task = sim_result.status.is_solved()
           solved_action_count += solved_task
-
+        else:
+          theta = old_theta
+    #print(solved_action_count)
     results.append({'num_good': good_action_count,
                     'num_solved': solved_action_count, 'num_total': len(discrete_actions)})
 
@@ -157,7 +167,7 @@ partial_worker = partial(
     tier=tier)
 
 t0 = time.time()
-results_list = pool.imap(partial_worker, chunkify(task_ids, pool_count))
+results_list = pool.imap(partial_worker, chunkify(task_ids, pool_count * 4))
 total_actions = []
 reduction_count = []
 percent_solved = []
