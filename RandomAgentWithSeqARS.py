@@ -56,7 +56,7 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
         random_action[0,0:3] = np.squeeze(solved_actions_pdf[task_type].resample(size=1))
       
       test_action_dist = np.linalg.norm(tested_actions[:,0:3] - random_action[:,0:3],axis=1)
-      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .75:
+      if np.any(test_action_dist <= tested_actions[:,3]) and np.random.random_sample() >= .25:
         continue
       if ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type,np.squeeze(random_action[0:3])):
 
