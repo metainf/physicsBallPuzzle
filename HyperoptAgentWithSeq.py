@@ -23,7 +23,7 @@ def evalAction(args,initial_img, seq_data, goal_type, simulator, task_index, eva
   r = args['r']
   stride = 5
   goal = 3 * 60/stride
-  score = 0
+  score = 1
   solved = False
   if ImgToObj.check_seq_action_intersect(initial_img,seq_data, 100, goal_type,np.array([x,y,r])):
     sim_result = simulator.simulate_action(
@@ -116,9 +116,9 @@ def worker(fold_id,eval_setup):
 
 faulthandler.enable()
 random.seed(0)
-#eval_setups = ['ball_cross_template', 'ball_within_template']
+eval_setups = ['ball_cross_template', 'ball_within_template']
 #fold_ids = list(range(0, 10))
-eval_setups = ['ball_cross_template']
+#eval_setups = ['ball_cross_template']
 fold_ids = list(range(0, 10))
 print('eval setups', eval_setups)
 print('fold ids', fold_ids)
@@ -129,7 +129,7 @@ f = open("simple_hyperopt_seq_agent_results{}.csv".format(dt_string), "w+")
 print('eval_setup,fold_id,AUCESS,Solved,Total,Percent_Solved', file=f)
 
 for eval_setup in eval_setups:
-  pool = multiprocessing.Pool(4)
+  pool = multiprocessing.Pool(6)
   partial_worker = partial(
     worker,
     eval_setup=eval_setup)
