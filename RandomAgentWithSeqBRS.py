@@ -19,8 +19,8 @@ def evaluate_agent(task_ids, tier,solved_actions_pdf):
   evaluator = phyre.Evaluator(task_ids)
   simulator = phyre.initialize_simulator(task_ids, tier)
   task_data_dict = phyre.loader.load_compiled_task_dict()
-  stride = 50
-  eval_stride = 10
+  stride = 100
+  eval_stride = 2
   goal = 3.0 * 60.0/eval_stride
   empty_action = phyre.simulator.scene_if.UserInput()
   tasks_solved = 0
@@ -145,8 +145,8 @@ def worker(fold_id, eval_setup):
 faulthandler.enable()
 random.seed(0)
 np.random.seed(0)
-#eval_setups = ['ball_cross_template', 'ball_within_template']
-eval_setups = ['ball_within_template']
+eval_setups = ['ball_cross_template', 'ball_within_template']
+#eval_setups = ['ball_within_template']
 fold_ids = list(range(0, 10))
 print('eval setups', eval_setups)
 print('fold ids', fold_ids)

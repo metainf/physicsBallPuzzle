@@ -13,8 +13,8 @@ import ImgToObj
 
 eval_setup = 'ball_cross_template'
 tier = 'ball'
-task_str = '00021:002'
-stride = 50
+task_str = '00006:007'
+stride = 10
 
 task_dict = phyre.loader.load_compiled_task_dict()
 
@@ -50,18 +50,18 @@ discrete_actions = cache.action_array.tolist()
 
 t0 = time.time()
 ax.imshow(start_img)
-
+'''
 for action_id,action in enumerate(discrete_actions): 
   if statuses[action_id] != phyre.simulation_cache.INVALID and ImgToObj.check_seq_action_intersect(images[0],seq_data, stride, goal_type, action):
     x, y, r = ImgToObj.phyreActionToPixelAction(action)
     circle1=plt.Circle((x,256.0-y),radius=r,facecolor='r',fill=True,alpha=.1)
     ax.add_patch(circle1)
-
+'''
 ax.plot()
 
 for img in images:
   alphaImg = np.zeros((256,256,4))
-  alphaImg[:,:,3] = .6
+  alphaImg[:,:,3] = .4
   alphaImg[:,:,0:3] = phyre.vis.observations_to_float_rgb(img)
   alphaImg[:,:,3] = (1 * (alphaImg[:, :, :3] != 1).any(axis=2))
   ax.imshow(alphaImg, zorder=10)

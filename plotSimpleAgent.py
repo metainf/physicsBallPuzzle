@@ -49,7 +49,7 @@ def rectArea(rect):
 tier = 'ball'
 #task_str = '00000:000'
 #task_str = '00022:004'
-task_str = '00020:000'
+task_str = '00007:124'
 
 cache = phyre.get_default_100k_cache(tier)
 statuses = cache.load_simulation_states(task_str)

@@ -42,7 +42,7 @@ def count_good_actions(task_ids, tier):
   max_actions = 100
   alpha = 1.0
   N = 5
-  eval_stride = 1
+  eval_stride = 5
   goal = 3.0 * 60.0/eval_stride
   max_search_actions = max_actions - (N*2+1) * 4
   for task_index in tqdm(range(len(task_ids)), desc='Evaluate tasks'):
